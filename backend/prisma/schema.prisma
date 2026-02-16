@@ -1,0 +1,229 @@
+// ──────────────────────────────────────────────
+// Handy — Prisma Schema
+// ──────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// Users (both customers and providers share this table)
+// ──────────────────────────────────────────────
+model User {
+  id            String   @id @default(uuid())
+  phone         String   @unique
+  name          String?
+  email         String?  @unique
+  avatarUrl     String?  @map("avatar_url")
+  role          Role     @default(CUSTOMER)
+  ratingAverage Float    @default(0) @map("rating_average")
+  ratingCount   Int      @default(0) @map("rating_count")
+  pushToken     String?  @map("push_token")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  providerProfile  ProviderProfile?
+  bookingsAsCustomer Booking[] @relation("CustomerBookings")
+  sentMessages     Message[]  @relation("SentMessages")
+  ratingsGiven     Rating[]   @relation("RatingsGiven")
+  ratingsReceived  Rating[]   @relation("RatingsReceived")
+  otpCodes         OtpCode[]
+  refreshTokens    RefreshToken[]
+
+  @@map("users")
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+// ──────────────────────────────────────────────
+// Provider Profiles (extends User for providers)
+// ──────────────────────────────────────────────
+model ProviderProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  bio           String?
+  serviceTypes  Json     @default("[]") @map("service_types")
+  totalJobs     Int      @default(0) @map("total_jobs")
+  isVerified    Boolean  @default(false) @map("is_verified")
+  isAvailable   Boolean  @default(true) @map("is_available")
+  locationLat   Float?   @map("location_lat")
+  locationLng   Float?   @map("location_lng")
+  coverageRadius Float?  @map("coverage_radius")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[] @relation("ProviderBookings")
+
+  @@map("provider_profiles")
+}
+
+// ──────────────────────────────────────────────
+// Service Categories
+// ──────────────────────────────────────────────
+model ServiceCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  icon        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  bookings Booking[]
+
+  @@map("service_categories")
+}
+
+// ──────────────────────────────────────────────
+// Bookings (Service Requests)
+// ──────────────────────────────────────────────
+model Booking {
+  id            String        @id @default(uuid())
+  customerId    String        @map("customer_id")
+  providerId    String?       @map("provider_id")
+  categoryId    String        @map("category_id")
+  status        BookingStatus @default(PENDING)
+  description   String
+  address       String?
+  locationLat   Float?        @map("location_lat")
+  locationLng   Float?        @map("location_lng")
+  scheduledAt   DateTime?     @map("scheduled_at")
+  price         Float?
+  paidAt        DateTime?     @map("paid_at")
+  completedAt   DateTime?     @map("completed_at")
+  cancelledAt   DateTime?     @map("cancelled_at")
+  cancelReason  String?       @map("cancel_reason")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  customer User             @relation("CustomerBookings", fields: [customerId], references: [id])
+  provider ProviderProfile? @relation("ProviderBookings", fields: [providerId], references: [id])
+  category ServiceCategory  @relation(fields: [categoryId], references: [id])
+  messages Message[]
+  ratings  Rating[]
+
+  @@index([customerId])
+  @@index([providerId])
+  @@index([status])
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  PROVIDER_ARRIVING
+  IN_PROGRESS
+  COMPLETED
+  RATED
+  CANCELLED
+  REJECTED
+}
+
+// ──────────────────────────────────────────────
+// Messages (Chat — bridges App ↔ WhatsApp)
+// ──────────────────────────────────────────────
+model Message {
+  id          String        @id @default(uuid())
+  bookingId   String        @map("booking_id")
+  senderId    String        @map("sender_id")
+  senderType  SenderType    @map("sender_type")
+  content     String
+  channel     MessageChannel @default(APP)
+  waMessageId String?       @map("wa_message_id")
+  readAt      DateTime?     @map("read_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender  User    @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([bookingId])
+  @@index([senderId])
+  @@map("messages")
+}
+
+enum SenderType {
+  CUSTOMER
+  PROVIDER
+  SYSTEM
+}
+
+enum MessageChannel {
+  APP
+  WHATSAPP
+}
+
+// ──────────────────────────────────────────────
+// Ratings & Reviews
+// ──────────────────────────────────────────────
+model Rating {
+  id         String   @id @default(uuid())
+  bookingId  String   @map("booking_id")
+  fromUserId String   @map("from_user_id")
+  toUserId   String   @map("to_user_id")
+  score      Int
+  comment    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromUser User    @relation("RatingsGiven", fields: [fromUserId], references: [id])
+  toUser   User    @relation("RatingsReceived", fields: [toUserId], references: [id])
+
+  @@unique([bookingId, fromUserId])
+  @@index([toUserId])
+  @@map("ratings")
+}
+
+// ──────────────────────────────────────────────
+// OTP Codes (for phone authentication)
+// ──────────────────────────────────────────────
+model OtpCode {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  phone     String
+  code      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phone, code])
+  @@map("otp_codes")
+}
+
+// ──────────────────────────────────────────────
+// Refresh Tokens (for JWT auth)
+// ──────────────────────────────────────────────
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
