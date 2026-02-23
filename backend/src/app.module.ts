@@ -5,8 +5,10 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './config/redis.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ServicesModule } from './modules/services/services.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -27,6 +29,9 @@ import { ServicesModule } from './modules/services/services.module';
     // Cache
     RedisModule,
 
+    // Auth (must be before feature modules)
+    AuthModule,
+
     // Feature modules
     UsersModule,
     ServicesModule,
@@ -37,6 +42,12 @@ import { ServicesModule } from './modules/services/services.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Apply JWT authentication globally
+    // Routes marked with @Public() will bypass auth
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

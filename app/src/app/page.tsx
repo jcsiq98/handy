@@ -1,3 +1,9 @@
+'use client';
+
+import { useAuth } from '../lib/auth-context';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 const SERVICE_CATEGORIES = [
   { slug: "plumbing", name: "Plomería", icon: "🔧", color: "bg-blue-50 text-blue-600" },
   { slug: "electrical", name: "Electricidad", icon: "⚡", color: "bg-yellow-50 text-yellow-600" },
@@ -17,16 +23,52 @@ const FEATURED_PROVIDERS = [
 ];
 
 export default function HomePage() {
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-3xl mb-4 animate-pulse">
+            🔧
+          </div>
+          <p className="text-gray-400 text-sm">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect
+  }
+
+  const displayName = user?.name || 'Usuario';
+  const firstName = displayName.split(' ')[0];
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
       <header className="px-5 pt-12 pb-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold">Handy</h1>
-            <p className="text-indigo-100 text-sm">Servicios a tu alcance</p>
+            <h1 className="text-2xl font-bold">
+              Hola, {firstName} 👋
+            </h1>
+            <p className="text-indigo-100 text-sm">¿Qué necesitas hoy?</p>
           </div>
-          <button className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg">
+          <button
+            onClick={logout}
+            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg hover:bg-white/30 transition-colors"
+            title="Cerrar sesión"
+          >
             👤
           </button>
         </div>

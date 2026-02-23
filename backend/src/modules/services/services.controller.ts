@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Services')
 @Controller('api/services')
@@ -14,12 +15,14 @@ export class ServicesController {
   constructor(private servicesService: ServicesService) {}
 
   @Get('categories')
+  @Public()
   @ApiOperation({ summary: 'List all active service categories' })
   async getCategories() {
     return this.servicesService.getCategories();
   }
 
   @Get('providers')
+  @Public()
   @ApiOperation({ summary: 'List providers by category' })
   @ApiQuery({ name: 'category', required: false, description: 'Category slug (e.g. plumbing)' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -37,6 +40,7 @@ export class ServicesController {
   }
 
   @Get('providers/:id')
+  @Public()
   @ApiOperation({ summary: 'Get provider detail with reviews' })
   async getProviderDetail(@Param('id') id: string) {
     const provider = await this.servicesService.getProviderDetail(id);
@@ -44,4 +48,3 @@ export class ServicesController {
     return provider;
   }
 }
-

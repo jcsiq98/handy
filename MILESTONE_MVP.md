@@ -73,33 +73,37 @@ Login/registro sin passwords usando código OTP enviado por WhatsApp o SMS.
 
 ### Tareas
 
-- [ ] **M2.1** Módulo Auth en NestJS
+- [x] **M2.1** Módulo Auth en NestJS ✅
   - `POST /api/auth/request-otp` — genera código 6 dígitos, guarda en DB con TTL 5min
   - `POST /api/auth/verify-otp` — verifica código, retorna JWT access + refresh tokens
   - `POST /api/auth/refresh` — renueva access token con refresh token
   - `POST /api/auth/logout` — invalida refresh token
-- [ ] **M2.2** Envío de OTP
+- [x] **M2.2** Envío de OTP ✅
   - Opción A (MVP): Enviar OTP por WhatsApp usando la Cloud API que ya tenemos
   - Opción B (fallback): Console log del código para desarrollo
   - Preparar interfaz para integrar Twilio SMS después
-- [ ] **M2.3** JWT Strategy con Passport
+- [x] **M2.3** JWT Strategy con Passport ✅
   - Access token (15min TTL)
-  - Refresh token (30 días TTL, stored en Redis)
+  - Refresh token (30 días TTL, stored en DB con rotación)
   - Guard global `@UseGuards(JwtAuthGuard)` para rutas protegidas
-- [ ] **M2.4** User creation on first login
+  - Decorador `@Public()` para rutas que no requieren auth
+  - Decorador `@CurrentUser()` para extraer el usuario autenticado
+- [x] **M2.4** User creation on first login ✅
   - Si el teléfono no existe en DB → crear user con role 'customer'
   - Si existe → retornar user existente
   - Endpoint `GET /api/auth/me` para obtener perfil actual
-- [ ] **M2.5** Pantallas de auth en Next.js
-  - Pantalla de bienvenida/splash
-  - Input de número de teléfono (con country code selector)
-  - Input de código OTP (6 dígitos, auto-focus, auto-submit)
+- [x] **M2.5** Pantallas de auth en Next.js ✅
+  - Pantalla de bienvenida/splash con logo
+  - Input de número de teléfono (con country code selector: MX, US, CO, AR, CL, ES)
+  - Input de código OTP (6 dígitos, auto-focus, auto-submit, paste support)
+  - Dev mode: muestra código OTP directamente en la UI
   - Redirect a home después de verificar
-  - Guardar token en httpOnly cookie o secure localStorage
-- [ ] **M2.6** Middleware de auth en Next.js
+  - Guardar tokens en localStorage + cookie para middleware
+- [x] **M2.6** Middleware de auth en Next.js ✅
   - Proteger rutas que requieren login
   - Redirect a `/login` si no autenticado
   - Persistencia de sesión (no pedir login cada vez)
+  - Auto-refresh de token cuando expira
 
 ### Testing M2
 

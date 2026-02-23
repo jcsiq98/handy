@@ -22,6 +22,9 @@ Thumbs.db
 # Prisma
 prisma/migrations/**/migration_lock.toml
 
+# Embedded PostgreSQL (dev)
+tmp-pg-data/
+
 # Logs
 *.log
 npm-debug.log*

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "../lib/auth-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -39,7 +40,7 @@ export default function RootLayout({
       >
         {/* Mobile container — max 480px centered */}
         <div className="mx-auto max-w-[480px] min-h-screen bg-white shadow-sm">
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </div>
       </body>
     </html>
