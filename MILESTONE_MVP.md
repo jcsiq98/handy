@@ -12,7 +12,7 @@ Configurar la base técnica completa: monorepo, backend, frontend, base de datos
 
 ### Tareas
 
-- [ ] **M1.1** Inicializar monorepo con estructura de carpetas
+- [x] **M1.1** Inicializar monorepo con estructura de carpetas ✅
   ```
   handy/
   ├── backend/          # NestJS API
@@ -22,33 +22,34 @@ Configurar la base técnica completa: monorepo, backend, frontend, base de datos
   ├── .env.example
   └── package.json      # Workspace root
   ```
-- [ ] **M1.2** Setup backend NestJS con TypeScript
+- [x] **M1.2** Setup backend NestJS con TypeScript ✅
   - Instalar NestJS CLI, crear proyecto
   - Configurar ESLint, Prettier
   - Configurar variables de entorno (@nestjs/config)
   - Crear módulo de health check (`GET /api/health`)
-- [ ] **M1.3** Setup base de datos PostgreSQL + Prisma ORM
+- [x] **M1.3** Setup base de datos PostgreSQL + Prisma ORM ✅
   - docker-compose con PostgreSQL 16 + Redis 7
   - Configurar Prisma con schema inicial
   - Schema de tablas core:
     - `users` (id, phone, name, email, avatar_url, role, created_at)
     - `provider_profiles` (user_id, bio, service_types[], rating_avg, total_jobs, verified, availability, location_lat, location_lng)
     - `service_categories` (id, name, slug, icon, description, is_active)
-    - `service_requests` (id, customer_id, provider_id, category_id, status, description, address, lat, lng, scheduled_at, price, created_at, updated_at)
-    - `messages` (id, request_id, sender_id, sender_type, content, channel, wa_message_id, read_at, created_at)
-    - `ratings` (id, request_id, from_user_id, to_user_id, score, comment, created_at)
+    - `bookings` (id, customer_id, provider_id, category_id, status, description, address, lat, lng, scheduled_at, price, created_at, updated_at)
+    - `messages` (id, booking_id, sender_id, sender_type, content, channel, wa_message_id, read_at, created_at)
+    - `ratings` (id, booking_id, from_user_id, to_user_id, score, comment, created_at)
     - `otp_codes` (id, phone, code, expires_at, used, created_at)
-  - Seed script con datos de prueba (5-10 proveedores ficticios con fotos y ratings)
-- [ ] **M1.4** Setup Redis para sessions y cache
-  - Conexión Redis desde NestJS
+    - `refresh_tokens` (id, user_id, token, expires_at, revoked, created_at)
+  - Seed script con datos de prueba (10 proveedores ficticios con ratings)
+- [x] **M1.4** Setup Redis para sessions y cache ✅
+  - Conexión Redis desde NestJS (con fallback in-memory)
   - Service de session management
-- [ ] **M1.5** Setup Next.js 14+ (App Router) para la PWA del cliente
+- [x] **M1.5** Setup Next.js 16 (App Router) para la PWA del cliente ✅
   - Crear proyecto con TypeScript, Tailwind CSS
-  - Configurar PWA (next-pwa o @ducanh2912/next-pwa): manifest.json, service worker, iconos
+  - Configurar PWA: manifest.json, iconos
   - Layout base (mobile-first, max-width 480px centrado)
-  - Configurar tema de colores y tipografía base
-- [ ] **M1.6** Configurar CORS, rate limiting, helmet en backend
-- [ ] **M1.7** Docker compose funcional: `docker compose up` levanta PostgreSQL + Redis
+  - Configurar tema de colores Indigo/Purple y tipografía Inter
+- [x] **M1.6** Configurar CORS, rate limiting, helmet en backend ✅
+- [x] **M1.7** Docker compose funcional: `docker compose up` levanta PostgreSQL + Redis ✅
 
 ### Testing M1
 
