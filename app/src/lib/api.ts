@@ -1,7 +1,10 @@
 // ─── API Client ─────────────────────────────────────────────
 // Centralised fetch wrapper with token management and refresh logic.
 
-const API_BASE = '/api';
+const API_BASE =
+  typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+    : '/api';
 
 interface ApiOptions extends RequestInit {
   skipAuth?: boolean;
@@ -164,4 +167,274 @@ export interface UserProfile {
     isAvailable: boolean;
   } | null;
 }
+
+// ─── Service Categories ──────────────────────────────────────
+
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export const servicesApi = {
+  getCategories: () =>
+    api<ServiceCategory[]>('/services/categories', { skipAuth: true }),
+};
+
+// ─── Providers ───────────────────────────────────────────────
+
+export interface ProviderSummary {
+  id: string;
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  serviceTypes: string[];
+  ratingAverage: number;
+  ratingCount: number;
+  totalJobs: number;
+  isVerified: boolean;
+  isAvailable: boolean;
+  locationLat: number | null;
+  locationLng: number | null;
+  distance?: number;
+}
+
+export interface ProviderListResponse {
+  data: ProviderSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface Review {
+  id: string;
+  score: number;
+  comment: string | null;
+  customerName: string;
+  customerAvatar: string | null;
+  createdAt: string;
+}
+
+export interface ProviderDetail extends ProviderSummary {
+  serviceNames: Record<string, string>;
+  memberSince: string;
+  reviews: Review[];
+}
+
+export interface ReviewsResponse {
+  data: Review[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const providersApi = {
+  list: (params?: {
+    category?: string;
+    lat?: number;
+    lng?: number;
+    sort?: 'rating' | 'distance' | 'jobs';
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.lat !== undefined) searchParams.set('lat', String(params.lat));
+    if (params?.lng !== undefined) searchParams.set('lng', String(params.lng));
+    if (params?.sort) searchParams.set('sort', params.sort);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const qs = searchParams.toString();
+    return api<ProviderListResponse>(`/providers${qs ? `?${qs}` : ''}`, { skipAuth: true });
+  },
+
+  getDetail: (id: string) =>
+    api<ProviderDetail>(`/providers/${id}`, { skipAuth: true }),
+
+  getReviews: (id: string, page = 1, limit = 10) =>
+    api<ReviewsResponse>(`/providers/${id}/reviews?page=${page}&limit=${limit}`, {
+      skipAuth: true,
+    }),
+};
+
+// ─── Bookings ────────────────────────────────────────────────
+
+export type BookingStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'PROVIDER_ARRIVING'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'RATED'
+  | 'CANCELLED'
+  | 'REJECTED';
+
+export interface BookingSummary {
+  id: string;
+  status: BookingStatus;
+  description: string;
+  address: string | null;
+  locationLat: number | null;
+  locationLng: number | null;
+  scheduledAt: string | null;
+  price: number | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+    icon: string;
+  } | null;
+  provider: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+    userId: string;
+    ratingAverage?: number;
+    ratingCount?: number;
+    phone?: string;
+  } | null;
+  customer: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+    ratingAverage?: number;
+    ratingCount?: number;
+    phone?: string;
+  } | null;
+}
+
+export interface BookingListResponse {
+  data: BookingSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const bookingsApi = {
+  create: (data: {
+    providerId: string;
+    categoryId: string;
+    description: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+    scheduledAt?: string;
+  }) =>
+    api<BookingSummary>('/bookings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  list: (params?: {
+    status?: 'active' | 'completed' | 'cancelled';
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const qs = searchParams.toString();
+    return api<BookingListResponse>(`/bookings${qs ? `?${qs}` : ''}`);
+  },
+
+  getById: (id: string) => api<BookingSummary>(`/bookings/${id}`),
+
+  cancel: (id: string, reason?: string) =>
+    api<BookingSummary>(`/bookings/${id}/cancel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    }),
+};
+
+// ─── Messages / Chat ─────────────────────────────────────────
+
+export type SenderType = 'CUSTOMER' | 'PROVIDER' | 'SYSTEM';
+export type MessageChannel = 'APP' | 'WHATSAPP';
+
+export interface ChatMessage {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  senderType: SenderType;
+  senderName: string | null;
+  senderAvatar: string | null;
+  content: string;
+  channel: MessageChannel;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface MessagesResponse {
+  data: ChatMessage[];
+  hasMore: boolean;
+}
+
+export const messagesApi = {
+  send: (bookingId: string, content: string) =>
+    api<ChatMessage>(`/bookings/${bookingId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+
+  getHistory: (bookingId: string, params?: { limit?: number; before?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.before) searchParams.set('before', params.before);
+    const qs = searchParams.toString();
+    return api<MessagesResponse>(
+      `/bookings/${bookingId}/messages${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  getUnreadCount: () =>
+    api<{ count: number }>('/messages/unread'),
+
+  getBookingUnreadCount: (bookingId: string) =>
+    api<{ count: number }>(`/bookings/${bookingId}/messages/unread`),
+};
+
+// ─── Ratings ──────────────────────────────────────────────────
+
+export interface RatingResponse {
+  id: string;
+  bookingId: string;
+  score: number;
+  comment: string | null;
+  fromUser: { id: string; name: string };
+  toUser: { id: string; name: string };
+  createdAt: string;
+}
+
+export interface MyRatingResponse {
+  rated: boolean;
+  rating: {
+    id: string;
+    score: number;
+    comment: string | null;
+    createdAt: string;
+  } | null;
+}
+
+export const ratingsApi = {
+  rate: (bookingId: string, data: { score: number; comment?: string }) =>
+    api<RatingResponse>(`/bookings/${bookingId}/rate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMyRating: (bookingId: string) =>
+    api<MyRatingResponse>(`/bookings/${bookingId}/my-rating`),
+};
 
