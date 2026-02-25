@@ -103,8 +103,9 @@ async function main() {
   const providers = [
     {
       name: 'Carlos Mendoza',
-      phone: '5215512345001',
-      bio: 'Plomero profesional con 15 años de experiencia. Especialista en reparación de tuberías y drenaje.',
+      phone: '+5215512345001',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Carlos',
+      bio: 'Plomero profesional con 15 años de experiencia. Especialista en reparación de tuberías, destape de drenaje y mantenimiento de cisternas. Atención a domicilio en toda la CDMX.',
       serviceTypes: ['plumbing'],
       ratingAvg: 4.8,
       ratingCount: 47,
@@ -115,8 +116,9 @@ async function main() {
     },
     {
       name: 'Roberto Hernández',
-      phone: '5215512345002',
-      bio: 'Electricista certificado. Instalaciones residenciales y comerciales. 20+ años de experiencia.',
+      phone: '+5215512345002',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Roberto',
+      bio: 'Electricista certificado con más de 20 años de experiencia. Instalaciones residenciales y comerciales, reparación de cortos circuitos y modernización de tableros eléctricos.',
       serviceTypes: ['electrical'],
       ratingAvg: 4.9,
       ratingCount: 63,
@@ -127,8 +129,9 @@ async function main() {
     },
     {
       name: 'María Guadalupe López',
-      phone: '5215512345003',
-      bio: 'Servicio de limpieza profesional para hogares y oficinas. Equipo propio.',
+      phone: '+5215512345003',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Maria',
+      bio: 'Servicio de limpieza profesional para hogares y oficinas. Cuento con equipo propio y productos ecológicos. Limpieza profunda, regular y post-construcción.',
       serviceTypes: ['cleaning'],
       ratingAvg: 4.7,
       ratingCount: 89,
@@ -139,89 +142,124 @@ async function main() {
     },
     {
       name: 'José Antonio García',
-      phone: '5215512345004',
-      bio: 'Jardinero con pasión por las plantas. Diseño de jardines y mantenimiento.',
+      phone: '+5215512345004',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Jose',
+      bio: 'Jardinero con pasión por las plantas y la naturaleza. Diseño de jardines, mantenimiento de áreas verdes, sistemas de riego y poda de árboles.',
       serviceTypes: ['gardening'],
       ratingAvg: 4.6,
       ratingCount: 34,
       totalJobs: 38,
       verified: false,
-      lat: 19.4350,
-      lng: -99.1450,
+      lat: 19.435,
+      lng: -99.145,
     },
     {
-      name: 'Fernando Ruiz',
-      phone: '5215512345005',
-      bio: 'Pintor profesional. Interiores y exteriores. Impermeabilización.',
+      name: 'Fernando Ruiz Ortega',
+      phone: '+5215512345005',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Fernando',
+      bio: 'Pintor profesional con 12 años de experiencia. Interiores, exteriores, impermeabilización y acabados decorativos. Trabajo limpio y garantizado.',
       serviceTypes: ['painting'],
       ratingAvg: 4.5,
       ratingCount: 28,
       totalJobs: 31,
       verified: true,
-      lat: 19.4250,
-      lng: -99.1680,
+      lat: 19.425,
+      lng: -99.168,
     },
     {
-      name: 'Ricardo Torres',
-      phone: '5215512345006',
-      bio: 'Cerrajero 24/7. Apertura de puertas, autos y cajas fuertes.',
+      name: 'Ricardo Torres Luna',
+      phone: '+5215512345006',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Ricardo',
+      bio: 'Cerrajero disponible las 24 horas, los 7 días de la semana. Apertura de puertas, autos y cajas fuertes. Cambio de chapas y cerraduras de seguridad.',
       serviceTypes: ['locksmith'],
       ratingAvg: 4.4,
       ratingCount: 22,
       totalJobs: 25,
       verified: true,
-      lat: 19.4180,
-      lng: -99.1410,
+      lat: 19.418,
+      lng: -99.141,
     },
     {
       name: 'Miguel Ángel Vásquez',
-      phone: '5215512345007',
-      bio: 'Todólogo del hogar. Plomería, electricidad, carpintería. ¡Yo lo arreglo!',
+      phone: '+5215512345007',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Miguel',
+      bio: 'Todólogo del hogar con 18 años de experiencia. Plomería, electricidad, carpintería y reparaciones en general. ¡Si algo se descompone, yo lo arreglo!',
       serviceTypes: ['repair', 'plumbing', 'electrical'],
       ratingAvg: 4.3,
       ratingCount: 56,
       totalJobs: 64,
       verified: false,
-      lat: 19.4400,
-      lng: -99.1200,
+      lat: 19.44,
+      lng: -99.12,
     },
     {
       name: 'Luis Enrique Morales',
-      phone: '5215512345008',
-      bio: 'Servicio de mudanzas con camioneta propia. Embalaje profesional.',
+      phone: '+5215512345008',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Luis',
+      bio: 'Servicio de mudanzas con camioneta propia. Embalaje profesional, transporte seguro y montaje/desmontaje de muebles. Mudanzas locales y foráneas.',
       serviceTypes: ['moving'],
       ratingAvg: 4.7,
       ratingCount: 41,
       totalJobs: 45,
       verified: true,
-      lat: 19.4100,
-      lng: -99.1550,
+      lat: 19.41,
+      lng: -99.155,
     },
     {
-      name: 'Patricia Sánchez',
-      phone: '5215512345009',
-      bio: 'Especialista en limpieza profunda. Post-construcción y mudanza.',
+      name: 'Patricia Sánchez Romero',
+      phone: '+5215512345009',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Patricia',
+      bio: 'Especialista en limpieza profunda y desinfección. Experiencia en limpieza post-construcción, post-mudanza y mantenimiento de oficinas corporativas.',
       serviceTypes: ['cleaning'],
       ratingAvg: 4.9,
       ratingCount: 73,
       totalJobs: 80,
       verified: true,
-      lat: 19.4220,
-      lng: -99.1380,
+      lat: 19.422,
+      lng: -99.138,
     },
     {
-      name: 'Alejandro Díaz',
-      phone: '5215512345010',
-      bio: 'Electricista y plomero. Dos oficios, una sola visita.',
+      name: 'Alejandro Díaz Herrera',
+      phone: '+5215512345010',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Alejandro',
+      bio: 'Electricista y plomero con doble certificación. Dos oficios en una sola visita: ahorra tiempo y dinero. Instalaciones nuevas y reparaciones.',
       serviceTypes: ['electrical', 'plumbing'],
       ratingAvg: 4.6,
       ratingCount: 37,
       totalJobs: 42,
       verified: true,
-      lat: 19.4310,
-      lng: -99.1600,
+      lat: 19.431,
+      lng: -99.16,
+    },
+    {
+      name: 'Sofía Ramírez Guerrero',
+      phone: '+5215512345011',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Sofia',
+      bio: 'Pintora artística y decorativa. Murales, acabados texturizados, técnicas venezianas y restauración de superficies. Dale vida a tus espacios.',
+      serviceTypes: ['painting'],
+      ratingAvg: 4.8,
+      ratingCount: 19,
+      totalJobs: 22,
+      verified: true,
+      lat: 19.427,
+      lng: -99.171,
+    },
+    {
+      name: 'Eduardo Castillo Méndez',
+      phone: '+5215512345012',
+      avatarUrl: 'https://api.dicebear.com/9.x/thumbs/svg?seed=Eduardo',
+      bio: 'Jardinero profesional y paisajista. Mantenimiento de jardines, diseño de terrazas verdes, huertos urbanos y control de plagas.',
+      serviceTypes: ['gardening'],
+      ratingAvg: 4.5,
+      ratingCount: 26,
+      totalJobs: 30,
+      verified: true,
+      lat: 19.438,
+      lng: -99.149,
     },
   ];
+
+  const providerRecords: { userId: string; profileId: string; name: string }[] = [];
 
   for (const p of providers) {
     const user = await prisma.user.upsert({
@@ -229,19 +267,21 @@ async function main() {
       update: {
         name: p.name,
         role: 'PROVIDER',
+        avatarUrl: p.avatarUrl,
         ratingAverage: p.ratingAvg,
         ratingCount: p.ratingCount,
       },
       create: {
         phone: p.phone,
         name: p.name,
+        avatarUrl: p.avatarUrl,
         role: 'PROVIDER',
         ratingAverage: p.ratingAvg,
         ratingCount: p.ratingCount,
       },
     });
 
-    await prisma.providerProfile.upsert({
+    const profile = await prisma.providerProfile.upsert({
       where: { userId: user.id },
       update: {
         bio: p.bio,
@@ -263,24 +303,151 @@ async function main() {
         coverageRadius: 10,
       },
     });
+
+    providerRecords.push({ userId: user.id, profileId: profile.id, name: p.name });
   }
 
   console.log(`✅ ${providers.length} providers created with profiles`);
 
-  // ── Sample Customer ──
-  await prisma.user.upsert({
-    where: { phone: '5215500000001' },
-    update: {},
-    create: {
-      phone: '5215500000001',
-      name: 'Ana Martínez',
-      role: 'CUSTOMER',
-      ratingAverage: 4.9,
-      ratingCount: 5,
-    },
-  });
+  // ── Sample Customers ──
+  const customers = [
+    { phone: '+5215500000001', name: 'Ana Martínez' },
+    { phone: '+5215500000002', name: 'Laura Gómez' },
+    { phone: '+5215500000003', name: 'Diego Fernández' },
+    { phone: '+5215500000004', name: 'Valentina Cruz' },
+    { phone: '+5215500000005', name: 'Santiago Ríos' },
+    { phone: '+5215500000006', name: 'Camila Herrera' },
+    { phone: '+5215500000007', name: 'Mateo Vargas' },
+    { phone: '+5215500000008', name: 'Isabella Moreno' },
+  ];
 
-  console.log('✅ Sample customer created');
+  const customerRecords: { userId: string; name: string }[] = [];
+
+  for (const c of customers) {
+    const user = await prisma.user.upsert({
+      where: { phone: c.phone },
+      update: { name: c.name },
+      create: {
+        phone: c.phone,
+        name: c.name,
+        role: 'CUSTOMER',
+        ratingAverage: 4.5 + Math.random() * 0.5,
+        ratingCount: Math.floor(Math.random() * 10) + 1,
+      },
+    });
+    customerRecords.push({ userId: user.id, name: c.name });
+  }
+
+  console.log(`✅ ${customers.length} sample customers created`);
+
+  // ── Sample Ratings & Reviews ──
+  // Create realistic reviews with varied ratings
+  const reviewComments: { score: number; comments: string[] }[] = [
+    {
+      score: 5,
+      comments: [
+        'Excelente trabajo, muy profesional y puntual. 100% recomendado.',
+        '¡Increíble servicio! Llegó a tiempo, hizo el trabajo rápido y dejó todo limpio.',
+        'Mejor profesional que he contratado. Muy amable y su trabajo es impecable.',
+        'Super recomendado. Resolvió mi problema en menos de una hora.',
+        'Trabajo de primera calidad. Ya lo tengo guardado en mis contactos.',
+        'Muy satisfecho con el resultado. Definitivamente lo volvería a contratar.',
+      ],
+    },
+    {
+      score: 4,
+      comments: [
+        'Buen trabajo en general. Llegó un poco tarde pero el resultado fue bueno.',
+        'Muy profesional, buen precio. Solo tardó un poco más de lo esperado.',
+        'Contento con el servicio. Buena comunicación y trabajo de calidad.',
+        'Resolvió el problema correctamente. Buen trato y precio justo.',
+        'Buen servicio, solo le faltó limpiar un poco al terminar.',
+      ],
+    },
+    {
+      score: 3,
+      comments: [
+        'El trabajo quedó bien, pero tardó más de lo que dijo.',
+        'Servicio aceptable. Nada extraordinario pero cumplió.',
+        'Regular. Tuvo que volver al día siguiente porque le faltó material.',
+      ],
+    },
+    {
+      score: 2,
+      comments: [
+        'Llegó 2 horas tarde y el trabajo no quedó como esperaba.',
+        'No quedé muy satisfecho. Tuvo que venir a arreglar lo que hizo.',
+      ],
+    },
+    {
+      score: 1,
+      comments: [
+        'Mala experiencia. No recomiendo. Nunca volvería a contratar.',
+      ],
+    },
+  ];
+
+  // Distribution: 40% 5-stars, 30% 4-stars, 15% 3-stars, 10% 2-stars, 5% 1-star
+  const ratingDistribution = [5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 3, 3, 3, 2, 2, 1];
+
+  let reviewCount = 0;
+
+  // Delete existing ratings first to avoid unique constraint issues
+  await prisma.rating.deleteMany({});
+  await prisma.booking.deleteMany({});
+
+  for (const provider of providerRecords) {
+    // Create 3-8 reviews per provider
+    const numReviews = 3 + Math.floor(Math.random() * 6);
+
+    for (let i = 0; i < numReviews; i++) {
+      // Pick a random customer
+      const customer = customerRecords[i % customerRecords.length];
+
+      // Pick a realistic rating score
+      const score = ratingDistribution[Math.floor(Math.random() * ratingDistribution.length)];
+
+      // Pick a matching comment
+      const scoreComments = reviewComments.find((r) => r.score === score)!.comments;
+      const comment = scoreComments[Math.floor(Math.random() * scoreComments.length)];
+
+      // Create a completed booking for this review
+      const categorySlug = (providers.find(p => p.name === provider.name)?.serviceTypes[0]) || 'repair';
+      const category = categories.find(c => c.slug === categorySlug) || categories[0];
+
+      const daysAgo = Math.floor(Math.random() * 180) + 1; // Random date within last 6 months
+      const bookingDate = new Date();
+      bookingDate.setDate(bookingDate.getDate() - daysAgo);
+
+      const booking = await prisma.booking.create({
+        data: {
+          customerId: customer.userId,
+          providerId: provider.profileId,
+          categoryId: category.id,
+          status: 'RATED',
+          description: 'Servicio completado',
+          address: 'Col. Roma Norte, CDMX',
+          completedAt: bookingDate,
+          createdAt: bookingDate,
+        },
+      });
+
+      await prisma.rating.create({
+        data: {
+          bookingId: booking.id,
+          fromUserId: customer.userId,
+          toUserId: provider.userId,
+          score,
+          comment: Math.random() > 0.15 ? comment : null, // 15% of reviews have no comment
+          createdAt: bookingDate,
+        },
+      });
+
+      reviewCount++;
+    }
+  }
+
+  console.log(`✅ ${reviewCount} reviews created with realistic distribution`);
   console.log('🎉 Seed completed successfully!');
 }
 
