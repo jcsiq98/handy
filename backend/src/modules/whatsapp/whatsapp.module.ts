@@ -1,0 +1,30 @@
+import { Module, Global, forwardRef } from '@nestjs/common';
+import { WhatsAppService } from './whatsapp.service';
+import { WhatsAppController } from './whatsapp.controller';
+import { WhatsAppProviderHandler } from './whatsapp-provider.handler';
+import { WhatsAppBookingListener } from './whatsapp-booking.listener';
+import { BookingsModule } from '../bookings/bookings.module';
+import { MessagesModule } from '../messages/messages.module';
+import { RatingsModule } from '../ratings/ratings.module';
+
+/**
+ * WhatsApp integration module.
+ * @Global() makes WhatsAppService available to AuthModule for OTP delivery
+ * without creating circular dependencies.
+ */
+@Global()
+@Module({
+  imports: [
+    BookingsModule, // To access BookingsGateway
+    forwardRef(() => MessagesModule), // To save bridged messages
+    RatingsModule, // For WA rating flow
+  ],
+  controllers: [WhatsAppController],
+  providers: [
+    WhatsAppService,
+    WhatsAppProviderHandler,
+    WhatsAppBookingListener,
+  ],
+  exports: [WhatsAppService, WhatsAppProviderHandler],
+})
+export class WhatsAppModule {}

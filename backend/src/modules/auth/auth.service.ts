@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   UnauthorizedException,
   BadRequestException,
   Logger,
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../config/redis.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private redis: RedisService,
+    @Optional() private whatsapp?: WhatsAppService,
   ) {}
 
   // ─── Request OTP ────────────────────────────────────────────
@@ -68,14 +71,23 @@ export class AuthService {
     await this.redis.set(rateLimitKey, newCount.toString(), 3600);
 
     // ──── Send OTP ────
-    // For MVP/development: log to console
-    // TODO: Integrate WhatsApp Cloud API or Twilio SMS
-    this.logger.log(`\n📱 OTP for ${phone}: ${code}\n`);
-    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`📱 OTP CODE for ${phone}`);
-    console.log(`🔑 Code: ${code}`);
-    console.log(`⏰ Expires: ${expiresAt.toISOString()}`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    // Try WhatsApp first, fall back to console logging in dev
+    if (this.whatsapp?.isWhatsAppEnabled()) {
+      const otpMessage =
+        `🔑 *Tu código de verificación Handy*\n\n` +
+        `${code}\n\n` +
+        `Válido por ${this.OTP_TTL_MINUTES} minutos. No compartas este código.`;
+      const result = await this.whatsapp.sendTextMessage(phone, otpMessage);
+      if (result.success) {
+        this.logger.log(`OTP sent via WhatsApp to ${phone}`);
+      } else {
+        this.logger.warn(`WhatsApp OTP failed for ${phone}, logging to console`);
+        this.logOtpToConsole(phone, code, expiresAt);
+      }
+    } else {
+      // Development mode: log to console
+      this.logOtpToConsole(phone, code, expiresAt);
+    }
 
     return {
       message: 'OTP sent successfully',
@@ -257,6 +269,15 @@ export class AuthService {
   }
 
   // ─── Private Helpers ────────────────────────────────────────
+
+  private logOtpToConsole(phone: string, code: string, expiresAt: Date) {
+    this.logger.log(`\n📱 OTP for ${phone}: ${code}\n`);
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📱 OTP CODE for ${phone}`);
+    console.log(`🔑 Code: ${code}`);
+    console.log(`⏰ Expires: ${expiresAt.toISOString()}`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+  }
 
   private generateOtpCode(): string {
     // Generate cryptographically secure 6-digit code
