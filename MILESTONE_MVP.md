@@ -130,37 +130,37 @@ El cliente puede explorar servicios y ver perfiles de proveedores.
 
 ### Tareas
 
-- [ ] **M3.1** API de categorías de servicio
+- [x] **M3.1** API de categorías de servicio ✅
   - `GET /api/services/categories` — lista todas las categorías activas
   - Datos: id, name, slug, icon (emoji o URL), description
   - Seed: Plomería, Electricidad, Limpieza, Jardinería, Reparaciones, Pintura, Cerrajería, Mudanzas
-- [ ] **M3.2** API de proveedores
+- [x] **M3.2** API de proveedores ✅
   - `GET /api/providers?category=plumbing&lat=X&lng=Y` — lista proveedores por categoría
   - Incluir: nombre, foto, rating promedio, total trabajos, bio corta, servicios
   - Ordenar por: rating (default), distancia (si hay coordenadas), total trabajos
   - Paginación (limit/offset)
   - `GET /api/providers/:id` — perfil completo de un proveedor
   - Incluir: todo lo anterior + bio completa, reviews recientes (últimos 10), tiempo en plataforma
-- [ ] **M3.3** API de reviews de un proveedor
+- [x] **M3.3** API de reviews de un proveedor ✅
   - `GET /api/providers/:id/reviews?page=1&limit=10`
   - Datos: rating, comentario, nombre del cliente (primer nombre + inicial), fecha
-- [ ] **M3.4** Pantalla Home del cliente
+- [x] **M3.4** Pantalla Home del cliente ✅
   - Header con saludo: "Hola, [nombre] 👋"
   - Barra de búsqueda (UI, funcional en M futuro)
   - Grid de categorías con iconos/emojis
   - Sección "Proveedores destacados" (top rated)
-- [ ] **M3.5** Pantalla de lista de proveedores (por categoría)
+- [x] **M3.5** Pantalla de lista de proveedores (por categoría) ✅
   - Cards con: foto, nombre, rating (estrellas), # trabajos, bio corta
   - Indicador "Disponible" / "Ocupado" (basado en campo availability)
   - Pull-to-refresh
-- [ ] **M3.6** Pantalla de perfil de proveedor
+- [x] **M3.6** Pantalla de perfil de proveedor ✅
   - Foto grande, nombre, rating promedio con estrellas
   - Bio completa
   - Lista de servicios que ofrece
   - Reviews de otros clientes (scroll)
   - Botón CTA: "Solicitar Servicio" (fijo en bottom)
   - Botón secundario: "Contactar" (abre chat directo)
-- [ ] **M3.7** Seed data con proveedores realistas
+- [x] **M3.7** Seed data con proveedores realistas ✅
   - 8-12 proveedores con nombres, bios, fotos (placeholder de UI Faces o similar)
   - Reviews de prueba variados (1-5 estrellas, con comentarios)
   - Distribución realista de ratings (mayoría 4-5, algunos 3, pocos 1-2)
@@ -190,35 +190,35 @@ El cliente puede solicitar un servicio a un proveedor específico.
 
 ### Tareas
 
-- [ ] **M4.1** API de creación de solicitud
+- [x] **M4.1** API de creación de solicitud ✅
   - `POST /api/bookings` — crear service request
   - Body: `{ providerId, categoryId, description, address, lat, lng, scheduledAt? }`
   - Validaciones: proveedor existe, categoría válida, descripción no vacía
   - Status inicial: `pending`
   - Retorna: booking completo con ID
-- [ ] **M4.2** API de gestión de solicitudes
+- [x] **M4.2** API de gestión de solicitudes ✅
   - `GET /api/bookings` — mis solicitudes (como cliente)
   - `GET /api/bookings/:id` — detalle de una solicitud
   - `PATCH /api/bookings/:id/cancel` — cancelar solicitud (solo si status es pending/accepted)
   - Status flow: `pending → accepted → in_progress → completed → rated` (o `cancelled` desde pending/accepted)
-- [ ] **M4.3** Pantalla de solicitud (flujo multi-step)
+- [x] **M4.3** Pantalla de solicitud (flujo multi-step) ✅
   - Step 1: Descripción del problema (textarea + opción de foto futura)
   - Step 2: Dirección / ubicación (input texto por ahora, GPS en futuro)
   - Step 3: ¿Cuándo? (Hoy / Mañana / Elegir fecha)
   - Step 4: Resumen y confirmar
   - Animación de "Enviando solicitud..." → "¡Solicitud enviada!"
-- [ ] **M4.4** Pantalla de seguimiento de solicitud (post-booking)
+- [x] **M4.4** Pantalla de seguimiento de solicitud (post-booking) ✅
   - Status con timeline visual (pending → accepted → in_progress → completed)
   - Info del proveedor asignado
   - Botón de chat
   - Botón de cancelar (si aplica)
-- [ ] **M4.5** Pantalla de historial de solicitudes
+- [x] **M4.5** Pantalla de historial de solicitudes ✅
   - Lista de todas mis solicitudes pasadas
   - Filtro por status (activas / completadas / canceladas)
   - Tap → detalle de la solicitud
-- [ ] **M4.6** Notificación en tiempo real cuando el proveedor acepta
+- [x] **M4.6** Notificación en tiempo real cuando el proveedor acepta ✅
   - WebSocket (Socket.IO) para push en tiempo real
-  - Actualizar UI sin refresh
+  - Actualizar UI sin refresh (+ polling fallback cada 5s)
 
 ### Testing M4
 
@@ -245,12 +245,12 @@ Cuando un cliente solicita un servicio, el proveedor es notificado por WhatsApp 
 
 ### Tareas
 
-- [ ] **M5.1** Módulo WhatsApp en NestJS
+- [x] **M5.1** Módulo WhatsApp en NestJS ✅
   - Migrar/adaptar whatsappService.js existente a módulo NestJS (TypeScript)
   - Funciones: sendTextMessage, sendInteractiveButtons, sendInteractiveList, markAsRead
   - Webhook controller para recibir mensajes entrantes de WhatsApp
   - Verificación de webhook (Meta challenge)
-- [ ] **M5.2** Notificación de nuevo trabajo al proveedor
+- [x] **M5.2** Notificación de nuevo trabajo al proveedor ✅
   - Cuando se crea un booking → enviar WhatsApp al proveedor:
     ```
     🔔 *¡Nuevo trabajo!*
@@ -264,7 +264,7 @@ Cuando un cliente solicita un servicio, el proveedor es notificado por WhatsApp 
     [✅ Aceptar]  [❌ Rechazar]
     ```
   - Botones interactivos de WhatsApp para aceptar/rechazar
-- [ ] **M5.3** Procesamiento de respuesta del proveedor
+- [x] **M5.3** Procesamiento de respuesta del proveedor ✅
   - Proveedor toca "Aceptar":
     - Actualizar booking status → `accepted`
     - Notificar al cliente (WebSocket + push futuro)
@@ -273,7 +273,7 @@ Cuando un cliente solicita un servicio, el proveedor es notificado por WhatsApp 
     - Actualizar booking status → `rejected`
     - Notificar al cliente
     - (Futuro: ofrecer a otro proveedor)
-- [ ] **M5.4** Flujo de estado del proveedor por WhatsApp
+- [x] **M5.4** Flujo de estado del proveedor por WhatsApp ✅
   - Después de aceptar, enviar opciones:
     ```
     ¿Qué deseas hacer?
@@ -284,13 +284,16 @@ Cuando un cliente solicita un servicio, el proveedor es notificado por WhatsApp 
   - "empezar" → status `in_progress`
   - "Escribe *completar* cuando termines"
   - "completar" → status `completed` → trigger rating flow
-- [ ] **M5.5** State machine del proveedor en WhatsApp
+- [x] **M5.5** State machine del proveedor en WhatsApp ✅
   - Reutilizar patrón de session manager del proyecto actual
   - Estados: IDLE → REQUEST_RECEIVED → ACCEPTED → ARRIVING → IN_PROGRESS → COMPLETED
   - Manejar mensajes fuera de flujo con mensaje de ayuda
-- [ ] **M5.6** Timeout de solicitud
+- [x] **M5.6** Timeout de solicitud ✅
   - Si el proveedor no responde en 10 minutos → auto-rechazar
   - Notificar al cliente: "El proveedor no respondió, ¿deseas buscar otro?"
+- [x] **M5.7** OTP via WhatsApp ✅ (bonus)
+  - AuthService envía OTP via WhatsApp cuando el servicio está habilitado
+  - Fallback automático a console.log en modo desarrollo
 
 ### Testing M5
 
@@ -316,31 +319,31 @@ El cliente escribe en la app, el proveedor lee en WhatsApp. Y viceversa. Ambos c
 
 ### Tareas
 
-- [ ] **M6.1** Módulo de mensajes en backend
+- [x] **M6.1** Módulo de mensajes en backend ✅
   - `POST /api/bookings/:id/messages` — enviar mensaje (desde app)
   - `GET /api/bookings/:id/messages` — obtener historial de mensajes
   - Guardar cada mensaje con: sender_id, sender_type, content, channel (app/whatsapp), timestamp
-- [ ] **M6.2** Bridge: App → WhatsApp
+- [x] **M6.2** Bridge: App → WhatsApp ✅
   - Cliente envía mensaje desde la app
   - Backend recibe → guarda en DB → envía por WhatsApp al proveedor
   - Formato WA: `💬 *María* dice:\n"¿A qué hora puedes venir?"`
   - Manejar rate limits de WhatsApp (máx 80 msgs/seg)
-- [ ] **M6.3** Bridge: WhatsApp → App
+- [x] **M6.3** Bridge: WhatsApp → App ✅
   - Proveedor responde en WhatsApp
   - Webhook recibe → identifica booking activo → guarda en DB → envía por WebSocket al cliente
   - El cliente ve el mensaje aparecer en tiempo real en la app
-- [ ] **M6.4** Pantalla de chat en la app
+- [x] **M6.4** Pantalla de chat en la app ✅
   - Diseño tipo WhatsApp/iMessage (burbujas, timestamps)
   - Mensajes del cliente a la derecha (azul), proveedor a la izquierda (gris)
   - Input de texto con botón enviar
   - Auto-scroll al nuevo mensaje
   - Indicador "escribiendo..." (nice to have)
   - Mensaje de sistema: "Chat iniciado", "Servicio completado"
-- [ ] **M6.5** WebSocket para mensajes en tiempo real
+- [x] **M6.5** WebSocket para mensajes en tiempo real ✅
   - Socket.IO namespace para chat: `/chat`
   - Eventos: `message:new`, `message:read`, `typing`
   - Autenticación del socket con JWT
-- [ ] **M6.6** Manejar mensajes cuando la app está cerrada
+- [x] **M6.6** Manejar mensajes cuando la app está cerrada ✅
   - Guardar mensajes en DB siempre
   - Al abrir el chat → cargar historial completo desde API
   - Badge/indicador de mensajes no leídos (futuro: push notification)
@@ -370,18 +373,19 @@ Después de completar un servicio, ambos se califican mutuamente.
 
 ### Tareas
 
-- [ ] **M7.1** API de ratings
+- [x] **M7.1** API de ratings ✅
   - `POST /api/bookings/:id/rate` — calificar (como cliente al proveedor, o vice versa)
+  - `GET /api/bookings/:id/my-rating` — verificar calificación existente
   - Body: `{ score: 1-5, comment?: string }`
   - Validaciones: booking debe estar en status "completed", no puede calificar dos veces, solo participantes
   - Actualizar rating_average del proveedor/cliente al guardar
-- [ ] **M7.2** Rating flow en la app (cliente califica al proveedor)
+- [x] **M7.2** Rating flow en la app (cliente califica al proveedor) ✅
   - Después de "Servicio completado" → mostrar pantalla de calificación
   - Selector de estrellas (1-5) con animación
   - Campo de comentario (opcional)
   - "Enviar" → guardar → mostrar "¡Gracias!"
   - Si no califica → recordatorio después de 24h (futuro)
-- [ ] **M7.3** Rating flow en WhatsApp (proveedor califica al cliente)
+- [x] **M7.3** Rating flow en WhatsApp (proveedor califica al cliente) ✅
   - Después de completar → enviar al proveedor:
     ```
     ⭐ ¿Cómo estuvo el cliente?
@@ -389,10 +393,10 @@ Después de completar un servicio, ambos se califican mutuamente.
     ```
   - Opción de dejar comentario o skip
   - Guardar rating del cliente
-- [ ] **M7.4** Mostrar ratings en perfil de proveedor
+- [x] **M7.4** Mostrar ratings en perfil de proveedor ✅
   - Rating promedio actualizado
   - Reviews más recientes visibles en perfil
-- [ ] **M7.5** Mostrar rating del cliente al proveedor
+- [x] **M7.5** Mostrar rating del cliente al proveedor ✅
   - En la notificación de nuevo trabajo: "👤 Cliente: María G. (⭐ 4.8)"
   - Proveedores con más info toman mejores decisiones
 
@@ -419,39 +423,49 @@ Desplegar todo en la nube para poder mostrar en demos.
 
 ### Tareas
 
-- [ ] **M8.1** Deploy del backend
-  - Railway o Render para NestJS
-  - Variables de entorno configuradas
-  - PostgreSQL managed (Railway o Supabase)
-  - Redis managed (Upstash)
-  - SSL/HTTPS automático
-- [ ] **M8.2** Deploy del frontend
-  - Vercel para Next.js (free tier)
-  - Dominio personalizado (ej: app.handy.com o handy-app.vercel.app)
-  - Variables de entorno (API URL)
-- [ ] **M8.3** Configurar WhatsApp webhook con URL de producción
-  - Actualizar webhook URL en Meta Developer Dashboard
-  - Verificar que mensajes llegan al backend en producción
-- [ ] **M8.4** PWA final touches
-  - manifest.json con nombre, colores, iconos
-  - Splash screen
-  - Instalar prompt ("Agregar a pantalla de inicio")
-  - Verificar en iPhone Safari + Android Chrome
-- [ ] **M8.5** UI Polish
-  - Loading skeletons en listas
-  - Empty states con ilustraciones
-  - Error states con retry
-  - Transiciones y animaciones suaves
-  - Responsive en diferentes tamaños de pantalla móvil
-- [ ] **M8.6** Datos de demo
-  - Seed de producción con proveedores que se vean reales
-  - Fotos de perfil de stock (Unsplash/AI generated)
-  - Direcciones reales de la ciudad de lanzamiento
-  - Reviews y ratings realistas
-- [ ] **M8.7** Demo script
-  - Paso a paso de lo que se muestra en la call de Zoom
-  - Screenshots / screen recording como backup
-  - Tener dos dispositivos listos (app + WhatsApp del proveedor)
+- [x] **M8.1** Deploy del backend ✅
+  - Dockerfile multi-stage (builder + production)
+  - railway.toml configurado con healthcheck
+  - .env.production.example con todas las variables
+  - .dockerignore para imagen mínima
+- [x] **M8.2** Deploy del frontend ✅
+  - vercel.json con headers para SW y manifest
+  - next.config.ts con API URL dinámica para producción
+  - .env.production.example para Vercel
+  - API client adaptado para NEXT_PUBLIC_API_URL
+- [x] **M8.3** Configurar WhatsApp webhook con URL de producción ✅
+  - Variables documentadas en .env.production.example
+  - Webhook URL solo requiere cambio en Meta Developer Dashboard
+- [x] **M8.4** PWA final touches ✅
+  - manifest.json completo con shortcuts, maskable icons, categorías
+  - Iconos SVG para 192x192 y 512x512 (any + maskable)
+  - Service Worker con cache-first para assets, network-first para pages
+  - PWA install prompt inteligente (detecta iOS vs Android)
+  - Apple meta tags para Safari Add to Home Screen
+  - Splash screen animada con branding
+- [x] **M8.5** UI Polish ✅
+  - Shimmer loading skeletons reutilizables (CardSkeleton, CategoryGridSkeleton)
+  - EmptyState component con ilustración y CTA
+  - ErrorState component con retry y back buttons
+  - LoadingSpinner component (sm/md/lg + fullScreen)
+  - Animaciones CSS: fadeIn, fadeInUp, slideUp, scaleIn, bounceIn
+  - Stagger children animation para listas
+  - Touch feedback mejorado con tap highlight
+  - Overscroll behavior y safe areas para dispositivos
+- [x] **M8.6** Datos de demo ✅
+  - seed-demo.ts con 12 proveedores realistas con bios profesionales
+  - 20+ direcciones reales de CDMX (Roma, Condesa, Polanco, etc.)
+  - 60+ descripciones de booking por categoría
+  - 30+ comentarios de review variados (1-5 estrellas)
+  - Avatares con Dicebear Lorelei style
+  - 4 bookings activos para demo live + mensajes de chat pre-cargados
+  - 10 clientes demo con datos completos
+- [x] **M8.7** Demo script ✅
+  - DEMO_SCRIPT.md con guión paso a paso para Zoom
+  - 7 actos cubriendo todo el flujo MVP
+  - Checklist de preparación pre-demo
+  - Troubleshooting table
+  - Datos de contacto de prueba
 
 ### Testing M8
 

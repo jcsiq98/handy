@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth-context";
+import PWAInstallPrompt from "../components/pwa-install-prompt";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,12 +36,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Handy" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+      </head>
       <body
         className={`${inter.variable} font-sans antialiased bg-gray-50 text-gray-900`}
       >
         {/* Mobile container — max 480px centered */}
         <div className="mx-auto max-w-[480px] min-h-screen bg-white shadow-sm">
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <PWAInstallPrompt />
+          </AuthProvider>
         </div>
       </body>
     </html>
