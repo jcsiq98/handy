@@ -242,7 +242,10 @@ export default function HomePage() {
             <p className="text-indigo-100 text-sm mb-3">
               Únete a Handy y recibe clientes directo en tu WhatsApp
             </p>
-            <button className="px-4 py-2 bg-white text-indigo-600 rounded-xl font-semibold text-sm hover:bg-indigo-50 transition-colors">
+            <button
+              onClick={() => router.push('/registro-proveedor')}
+              className="px-4 py-2 bg-white text-indigo-600 rounded-xl font-semibold text-sm hover:bg-indigo-50 transition-colors"
+            >
               Registrarme como proveedor
             </button>
           </div>
