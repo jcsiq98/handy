@@ -12,7 +12,13 @@ import { ConfigService } from '@nestjs/config';
 @WebSocketGateway({
   namespace: '/bookings',
   cors: {
-    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? [
+            process.env.FRONTEND_URL,
+            /https:\/\/.*\.vercel\.app$/,
+          ].filter(Boolean)
+        : ['http://localhost:3001', 'http://localhost:3000'],
     credentials: true,
   },
 })
