@@ -310,8 +310,10 @@ async function main() {
   console.log(`✅ ${providers.length} providers created with profiles`);
 
   // ── Service Zones ──
+  // Zones for major cities across Mexico — new cities will be auto-created
+  // by ZonesService when providers register via WhatsApp onboarding
   const zonesData = [
-    // CDMX
+    // ── CDMX ──
     { name: 'Condesa', city: 'Ciudad de México', state: 'CDMX', lat: 19.4115, lng: -99.1733 },
     { name: 'Roma Norte', city: 'Ciudad de México', state: 'CDMX', lat: 19.4195, lng: -99.1596 },
     { name: 'Roma Sur', city: 'Ciudad de México', state: 'CDMX', lat: 19.4100, lng: -99.1600 },
@@ -327,24 +329,126 @@ async function main() {
     { name: 'Xochimilco', city: 'Ciudad de México', state: 'CDMX', lat: 19.2610, lng: -99.1040 },
     { name: 'Napoles', city: 'Ciudad de México', state: 'CDMX', lat: 19.3930, lng: -99.1760 },
     { name: 'Escandón', city: 'Ciudad de México', state: 'CDMX', lat: 19.4030, lng: -99.1800 },
-    // Monterrey
+
+    // ── Monterrey ──
     { name: 'San Pedro Garza García', city: 'Monterrey', state: 'Nuevo León', lat: 25.6580, lng: -100.4030 },
     { name: 'Valle', city: 'Monterrey', state: 'Nuevo León', lat: 25.6330, lng: -100.2820 },
     { name: 'Cumbres', city: 'Monterrey', state: 'Nuevo León', lat: 25.7470, lng: -100.3960 },
     { name: 'Centro Monterrey', city: 'Monterrey', state: 'Nuevo León', lat: 25.6714, lng: -100.3090 },
     { name: 'Contry', city: 'Monterrey', state: 'Nuevo León', lat: 25.6400, lng: -100.3160 },
-    // Guadalajara
+
+    // ── Guadalajara ──
     { name: 'Chapultepec', city: 'Guadalajara', state: 'Jalisco', lat: 20.6730, lng: -103.3800 },
     { name: 'Providencia', city: 'Guadalajara', state: 'Jalisco', lat: 20.6910, lng: -103.3920 },
     { name: 'Americana', city: 'Guadalajara', state: 'Jalisco', lat: 20.6760, lng: -103.3700 },
     { name: 'Centro Guadalajara', city: 'Guadalajara', state: 'Jalisco', lat: 20.6765, lng: -103.3474 },
     { name: 'Zapopan Centro', city: 'Guadalajara', state: 'Jalisco', lat: 20.7167, lng: -103.3890 },
-    // Ciudad Juárez
+
+    // ── Ciudad Juárez ──
     { name: 'Pronaf', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7380, lng: -106.4510 },
-    { name: 'Centro Ciudad Juárez', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7400, lng: -106.4870 },
+    { name: 'Centro', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7400, lng: -106.4870 },
     { name: 'Las Misiones', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.6540, lng: -106.3870 },
     { name: 'Partido Romero', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7100, lng: -106.4600 },
     { name: 'Campestre', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7250, lng: -106.4200 },
+    { name: 'Zona Pronaf', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7370, lng: -106.4480 },
+    { name: 'Gomez Morin', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.6930, lng: -106.4240 },
+    { name: 'Salvarcar', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.6380, lng: -106.3700 },
+    { name: 'Independencia', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7200, lng: -106.4750 },
+    { name: 'Parajes del Sur', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.6200, lng: -106.4100 },
+
+    // ── Puebla ──
+    { name: 'Centro Histórico', city: 'Puebla', state: 'Puebla', lat: 19.0414, lng: -98.2063 },
+    { name: 'Angelópolis', city: 'Puebla', state: 'Puebla', lat: 19.0150, lng: -98.2370 },
+    { name: 'La Paz', city: 'Puebla', state: 'Puebla', lat: 19.0480, lng: -98.1980 },
+    { name: 'Huexotitla', city: 'Puebla', state: 'Puebla', lat: 19.0350, lng: -98.2250 },
+    { name: 'Cholula', city: 'Puebla', state: 'Puebla', lat: 19.0630, lng: -98.3030 },
+
+    // ── Tijuana ──
+    { name: 'Zona Río', city: 'Tijuana', state: 'Baja California', lat: 32.5270, lng: -117.0370 },
+    { name: 'Playas de Tijuana', city: 'Tijuana', state: 'Baja California', lat: 32.5310, lng: -117.1230 },
+    { name: 'Centro', city: 'Tijuana', state: 'Baja California', lat: 32.5340, lng: -117.0190 },
+    { name: 'Otay', city: 'Tijuana', state: 'Baja California', lat: 32.5490, lng: -116.9650 },
+    { name: 'Chapultepec', city: 'Tijuana', state: 'Baja California', lat: 32.5130, lng: -117.0420 },
+
+    // ── Mérida ──
+    { name: 'Centro', city: 'Mérida', state: 'Yucatán', lat: 20.9700, lng: -89.6230 },
+    { name: 'Altabrisa', city: 'Mérida', state: 'Yucatán', lat: 21.0080, lng: -89.5880 },
+    { name: 'Montejo', city: 'Mérida', state: 'Yucatán', lat: 20.9950, lng: -89.6130 },
+    { name: 'García Ginerés', city: 'Mérida', state: 'Yucatán', lat: 20.9800, lng: -89.6350 },
+    { name: 'Chuburná', city: 'Mérida', state: 'Yucatán', lat: 20.9880, lng: -89.6080 },
+
+    // ── Querétaro ──
+    { name: 'Centro Histórico', city: 'Querétaro', state: 'Querétaro', lat: 20.5930, lng: -100.3890 },
+    { name: 'Juriquilla', city: 'Querétaro', state: 'Querétaro', lat: 20.7100, lng: -100.4520 },
+    { name: 'El Refugio', city: 'Querétaro', state: 'Querétaro', lat: 20.6280, lng: -100.3440 },
+    { name: 'Milenio III', city: 'Querétaro', state: 'Querétaro', lat: 20.5680, lng: -100.4150 },
+    { name: 'Zibatá', city: 'Querétaro', state: 'Querétaro', lat: 20.7300, lng: -100.3960 },
+
+    // ── Cancún ──
+    { name: 'Zona Hotelera', city: 'Cancún', state: 'Quintana Roo', lat: 21.1310, lng: -86.7620 },
+    { name: 'Centro', city: 'Cancún', state: 'Quintana Roo', lat: 21.1619, lng: -86.8515 },
+    { name: 'Puerto Cancún', city: 'Cancún', state: 'Quintana Roo', lat: 21.1680, lng: -86.8170 },
+    { name: 'Supermanzana 50', city: 'Cancún', state: 'Quintana Roo', lat: 21.1480, lng: -86.8420 },
+
+    // ── León ──
+    { name: 'Centro', city: 'León', state: 'Guanajuato', lat: 21.1220, lng: -101.6820 },
+    { name: 'Zona Piel', city: 'León', state: 'Guanajuato', lat: 21.1100, lng: -101.6500 },
+    { name: 'Gran Jardín', city: 'León', state: 'Guanajuato', lat: 21.1530, lng: -101.7020 },
+    { name: 'La Martinica', city: 'León', state: 'Guanajuato', lat: 21.1400, lng: -101.6700 },
+
+    // ── Chihuahua ──
+    { name: 'Centro', city: 'Chihuahua', state: 'Chihuahua', lat: 28.6353, lng: -106.0889 },
+    { name: 'San Felipe', city: 'Chihuahua', state: 'Chihuahua', lat: 28.6400, lng: -106.0750 },
+    { name: 'Campestre', city: 'Chihuahua', state: 'Chihuahua', lat: 28.6150, lng: -106.0950 },
+    { name: 'Quintas del Sol', city: 'Chihuahua', state: 'Chihuahua', lat: 28.6700, lng: -106.1300 },
+
+    // ── Aguascalientes ──
+    { name: 'Centro', city: 'Aguascalientes', state: 'Aguascalientes', lat: 21.8818, lng: -102.2916 },
+    { name: 'Jardines de la Asunción', city: 'Aguascalientes', state: 'Aguascalientes', lat: 21.8980, lng: -102.2800 },
+    { name: 'Pulgas Pandas', city: 'Aguascalientes', state: 'Aguascalientes', lat: 21.8700, lng: -102.3000 },
+
+    // ── San Luis Potosí ──
+    { name: 'Centro Histórico', city: 'San Luis Potosí', state: 'San Luis Potosí', lat: 22.1495, lng: -100.9737 },
+    { name: 'Lomas', city: 'San Luis Potosí', state: 'San Luis Potosí', lat: 22.1600, lng: -100.9900 },
+    { name: 'Industrial Aviación', city: 'San Luis Potosí', state: 'San Luis Potosí', lat: 22.1350, lng: -100.9600 },
+
+    // ── Hermosillo ──
+    { name: 'Centro', city: 'Hermosillo', state: 'Sonora', lat: 29.0729, lng: -110.9559 },
+    { name: 'Pitic', city: 'Hermosillo', state: 'Sonora', lat: 29.0850, lng: -110.9700 },
+    { name: 'Villa Satélite', city: 'Hermosillo', state: 'Sonora', lat: 29.0600, lng: -110.9400 },
+
+    // ── Mexicali ──
+    { name: 'Centro Cívico', city: 'Mexicali', state: 'Baja California', lat: 32.6510, lng: -115.4680 },
+    { name: 'Nuevo Mexicali', city: 'Mexicali', state: 'Baja California', lat: 32.6300, lng: -115.4200 },
+    { name: 'Calafia', city: 'Mexicali', state: 'Baja California', lat: 32.6400, lng: -115.4500 },
+
+    // ── Saltillo ──
+    { name: 'Centro', city: 'Saltillo', state: 'Coahuila', lat: 25.4209, lng: -100.9925 },
+    { name: 'Valle Real', city: 'Saltillo', state: 'Coahuila', lat: 25.4050, lng: -101.0100 },
+
+    // ── Torreón ──
+    { name: 'Centro', city: 'Torreón', state: 'Coahuila', lat: 25.5428, lng: -103.4068 },
+    { name: 'Las Quintas', city: 'Torreón', state: 'Coahuila', lat: 25.5200, lng: -103.4200 },
+
+    // ── Culiacán ──
+    { name: 'Centro', city: 'Culiacán', state: 'Sinaloa', lat: 24.7994, lng: -107.3939 },
+    { name: 'Tres Ríos', city: 'Culiacán', state: 'Sinaloa', lat: 24.7880, lng: -107.4100 },
+
+    // ── Morelia ──
+    { name: 'Centro Histórico', city: 'Morelia', state: 'Michoacán', lat: 19.7026, lng: -101.1920 },
+    { name: 'Tres Marías', city: 'Morelia', state: 'Michoacán', lat: 19.7150, lng: -101.2050 },
+
+    // ── Veracruz ──
+    { name: 'Centro', city: 'Veracruz', state: 'Veracruz', lat: 19.1738, lng: -96.1342 },
+    { name: 'Boca del Río', city: 'Veracruz', state: 'Veracruz', lat: 19.1050, lng: -96.1070 },
+
+    // ── Reynosa ──
+    { name: 'Centro', city: 'Reynosa', state: 'Tamaulipas', lat: 26.0808, lng: -98.2883 },
+    { name: 'Las Fuentes', city: 'Reynosa', state: 'Tamaulipas', lat: 26.0700, lng: -98.3000 },
+
+    // ── Tampico ──
+    { name: 'Centro', city: 'Tampico', state: 'Tamaulipas', lat: 22.2331, lng: -97.8611 },
+    { name: 'Altamira', city: 'Tampico', state: 'Tamaulipas', lat: 22.3930, lng: -97.9430 },
   ];
 
   const zoneRecords: { id: string; name: string; city: string }[] = [];

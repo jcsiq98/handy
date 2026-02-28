@@ -11,6 +11,7 @@ export enum OnboardingStep {
   NAME = 'NAME',
   SERVICES = 'SERVICES',
   EXPERIENCE = 'EXPERIENCE',
+  CITY = 'CITY', // NEW: ask for city before zones
   ZONES = 'ZONES',
   BIO = 'BIO',
   REVIEW = 'REVIEW',
@@ -22,6 +23,8 @@ interface OnboardingSession {
   name?: string;
   categories?: string[];
   yearsExperience?: number;
+  city?: string; // NEW: provider's city
+  state?: string; // NEW: provider's state
   serviceZones?: string[]; // zone names (for display)
   serviceZoneIds?: string[]; // zone UUIDs (for DB relations)
   bio?: string;
@@ -39,8 +42,59 @@ const SERVICE_CATEGORIES = [
   { num: 8, slug: 'moving', icon: '📦', name: 'Mudanzas' },
 ];
 
+// ─── Mexican cities catalog ────────────────────────────────
+// Maps common city names / aliases → canonical { city, state }
+const MEXICAN_CITIES: {
+  keywords: string[];
+  city: string;
+  state: string;
+}[] = [
+  { keywords: ['cdmx', 'ciudad de mexico', 'ciudad de méxico', 'df', 'mexico city'], city: 'Ciudad de México', state: 'CDMX' },
+  { keywords: ['monterrey', 'mty'], city: 'Monterrey', state: 'Nuevo León' },
+  { keywords: ['guadalajara', 'gdl'], city: 'Guadalajara', state: 'Jalisco' },
+  { keywords: ['puebla'], city: 'Puebla', state: 'Puebla' },
+  { keywords: ['tijuana', 'tj'], city: 'Tijuana', state: 'Baja California' },
+  { keywords: ['juarez', 'juárez', 'ciudad juarez', 'ciudad juárez', 'cd juarez', 'cd juárez', 'cd. juarez', 'cd. juárez'], city: 'Ciudad Juárez', state: 'Chihuahua' },
+  { keywords: ['leon', 'león'], city: 'León', state: 'Guanajuato' },
+  { keywords: ['merida', 'mérida'], city: 'Mérida', state: 'Yucatán' },
+  { keywords: ['queretaro', 'querétaro', 'qro'], city: 'Querétaro', state: 'Querétaro' },
+  { keywords: ['cancun', 'cancún'], city: 'Cancún', state: 'Quintana Roo' },
+  { keywords: ['chihuahua'], city: 'Chihuahua', state: 'Chihuahua' },
+  { keywords: ['aguascalientes', 'ags'], city: 'Aguascalientes', state: 'Aguascalientes' },
+  { keywords: ['toluca'], city: 'Toluca', state: 'Estado de México' },
+  { keywords: ['saltillo'], city: 'Saltillo', state: 'Coahuila' },
+  { keywords: ['hermosillo'], city: 'Hermosillo', state: 'Sonora' },
+  { keywords: ['morelia'], city: 'Morelia', state: 'Michoacán' },
+  { keywords: ['villahermosa'], city: 'Villahermosa', state: 'Tabasco' },
+  { keywords: ['tuxtla', 'tuxtla gutierrez', 'tuxtla gutiérrez'], city: 'Tuxtla Gutiérrez', state: 'Chiapas' },
+  { keywords: ['san luis potosi', 'san luis potosí', 'slp'], city: 'San Luis Potosí', state: 'San Luis Potosí' },
+  { keywords: ['oaxaca'], city: 'Oaxaca', state: 'Oaxaca' },
+  { keywords: ['veracruz'], city: 'Veracruz', state: 'Veracruz' },
+  { keywords: ['acapulco'], city: 'Acapulco', state: 'Guerrero' },
+  { keywords: ['mazatlan', 'mazatlán'], city: 'Mazatlán', state: 'Sinaloa' },
+  { keywords: ['culiacan', 'culiacán'], city: 'Culiacán', state: 'Sinaloa' },
+  { keywords: ['durango'], city: 'Durango', state: 'Durango' },
+  { keywords: ['playa del carmen', 'playa'], city: 'Playa del Carmen', state: 'Quintana Roo' },
+  { keywords: ['san pedro garza garcia', 'san pedro garza garcía', 'san pedro'], city: 'San Pedro Garza García', state: 'Nuevo León' },
+  { keywords: ['cuernavaca'], city: 'Cuernavaca', state: 'Morelos' },
+  { keywords: ['tampico'], city: 'Tampico', state: 'Tamaulipas' },
+  { keywords: ['reynosa'], city: 'Reynosa', state: 'Tamaulipas' },
+  { keywords: ['mexicali'], city: 'Mexicali', state: 'Baja California' },
+  { keywords: ['ensenada'], city: 'Ensenada', state: 'Baja California' },
+  { keywords: ['pachuca'], city: 'Pachuca', state: 'Hidalgo' },
+  { keywords: ['celaya'], city: 'Celaya', state: 'Guanajuato' },
+  { keywords: ['irapuato'], city: 'Irapuato', state: 'Guanajuato' },
+  { keywords: ['torreon', 'torreón'], city: 'Torreón', state: 'Coahuila' },
+  { keywords: ['los cabos', 'cabo san lucas', 'san jose del cabo'], city: 'Los Cabos', state: 'Baja California Sur' },
+  { keywords: ['la paz'], city: 'La Paz', state: 'Baja California Sur' },
+  { keywords: ['nogales'], city: 'Nogales', state: 'Sonora' },
+  { keywords: ['nuevo laredo'], city: 'Nuevo Laredo', state: 'Tamaulipas' },
+  { keywords: ['matamoros'], city: 'Matamoros', state: 'Tamaulipas' },
+];
+
 const SESSION_PREFIX = 'wa_onboarding:';
 const SESSION_TTL = 86400; // 24 hours
+const TOTAL_STEPS = 6; // Updated from 5 to 6
 
 @Injectable()
 export class WhatsAppOnboardingHandler {
@@ -162,6 +216,8 @@ export class WhatsAppOnboardingHandler {
         return this.handleServicesResponse(senderPhone, text, session);
       case OnboardingStep.EXPERIENCE:
         return this.handleExperienceResponse(senderPhone, text, session);
+      case OnboardingStep.CITY:
+        return this.handleCityResponse(senderPhone, text, session);
       case OnboardingStep.ZONES:
         return this.handleZonesResponse(senderPhone, text, session);
       case OnboardingStep.BIO:
@@ -189,7 +245,7 @@ export class WhatsAppOnboardingHandler {
     await this.whatsapp.sendTextMessage(
       phone,
       `👋 ¡Hola${name ? ` ${name}` : ''}! Bienvenido a *Handy*.\n\n` +
-        `Somos una plataforma que conecta clientes con proveedores de servicios del hogar.\n\n` +
+        `Somos una plataforma que conecta clientes con proveedores de servicios del hogar en *todo México* 🇲🇽.\n\n` +
         `🛠 ¿Te gustaría ofrecer tus servicios en Handy?\n\n` +
         `✅ Escribe *"si"* para comenzar tu registro\n` +
         `❌ Escribe *"no"* si solo estás explorando`,
@@ -215,7 +271,7 @@ export class WhatsAppOnboardingHandler {
       await this.whatsapp.sendTextMessage(
         phone,
         `¡Genial! 🎉 Vamos a registrarte. Son solo unas preguntas rápidas.\n\n` +
-          `📝 *Paso 1 de 5*\n\n` +
+          `📝 *Paso 1 de ${TOTAL_STEPS}*\n\n` +
           `¿Cuál es tu *nombre completo*?\n` +
           `_(Ejemplo: Juan Pérez López)_`,
       );
@@ -248,7 +304,6 @@ export class WhatsAppOnboardingHandler {
     text: string,
     session: OnboardingSession,
   ): Promise<void> {
-    // Validate name: at least 2 words, only letters/spaces
     const trimmed = text.trim();
     if (trimmed.length < 3) {
       await this.whatsapp.sendTextMessage(
@@ -258,7 +313,7 @@ export class WhatsAppOnboardingHandler {
       return;
     }
 
-    // Save name
+    // Save name (capitalize each word)
     session.name = trimmed
       .split(' ')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
@@ -274,7 +329,7 @@ export class WhatsAppOnboardingHandler {
     await this.whatsapp.sendTextMessage(
       phone,
       `Perfecto, *${session.name}* 👋\n\n` +
-        `📝 *Paso 2 de 5*\n\n` +
+        `📝 *Paso 2 de ${TOTAL_STEPS}*\n\n` +
         `¿Qué servicios ofreces? Elige uno o varios:\n\n` +
         `${categoryList}\n\n` +
         `Escribe los *números separados por coma*\n` +
@@ -289,7 +344,6 @@ export class WhatsAppOnboardingHandler {
     text: string,
     session: OnboardingSession,
   ): Promise<void> {
-    // Parse comma-separated numbers
     const numbers = text
       .split(/[,\s]+/)
       .map((s) => parseInt(s.trim(), 10))
@@ -311,14 +365,12 @@ export class WhatsAppOnboardingHandler {
       return;
     }
 
-    // Remove duplicates
     const uniqueNums = [...new Set(validNums)];
     const selected = uniqueNums.map(
       (n) => SERVICE_CATEGORIES.find((c) => c.num === n)!,
     );
     session.categories = selected.map((c) => c.slug);
 
-    // Move to EXPERIENCE
     session.step = OnboardingStep.EXPERIENCE;
     await this.setSession(phone, session);
 
@@ -329,7 +381,7 @@ export class WhatsAppOnboardingHandler {
     await this.whatsapp.sendTextMessage(
       phone,
       `✅ Servicios seleccionados: ${selectedNames}\n\n` +
-        `📝 *Paso 3 de 5*\n\n` +
+        `📝 *Paso 3 de ${TOTAL_STEPS}*\n\n` +
         `¿Cuántos *años de experiencia* tienes en estos servicios?\n` +
         `_(Escribe solo el número, ejemplo: 5)_`,
     );
@@ -352,16 +404,64 @@ export class WhatsAppOnboardingHandler {
     }
 
     session.yearsExperience = years;
-    session.step = OnboardingStep.ZONES;
+    session.step = OnboardingStep.CITY;
     await this.setSession(phone, session);
 
     await this.whatsapp.sendTextMessage(
       phone,
       `✅ ${years} años de experiencia 💪\n\n` +
-        `📝 *Paso 4 de 5*\n\n` +
-        `¿En qué *zonas o colonias* ofreces tus servicios?\n\n` +
+        `📝 *Paso 4 de ${TOTAL_STEPS}*\n\n` +
+        `🏙 ¿En qué *ciudad* ofreces tus servicios?\n\n` +
+        `Escribe el nombre de tu ciudad.\n` +
+        `_(Ejemplo: Juárez, Monterrey, CDMX, Guadalajara, Mérida, etc.)_`,
+    );
+  }
+
+  // ─── Step: CITY (NEW) ─────────────────────────────────────
+
+  private async handleCityResponse(
+    phone: string,
+    text: string,
+    session: OnboardingSession,
+  ): Promise<void> {
+    const input = text.trim().toLowerCase();
+
+    if (input.length < 2) {
+      await this.whatsapp.sendTextMessage(
+        phone,
+        `❌ Escribe el nombre de tu ciudad.\n_(Ejemplo: Juárez, Monterrey, CDMX, Guadalajara)_`,
+      );
+      return;
+    }
+
+    // Try to match against known cities
+    const match = MEXICAN_CITIES.find((c) =>
+      c.keywords.some((kw) => input === kw || input.includes(kw) || kw.includes(input)),
+    );
+
+    if (match) {
+      session.city = match.city;
+      session.state = match.state;
+    } else {
+      // Unknown city — accept it as-is (capitalize)
+      session.city = text
+        .trim()
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+      session.state = ''; // Unknown state, will be set later if needed
+    }
+
+    session.step = OnboardingStep.ZONES;
+    await this.setSession(phone, session);
+
+    await this.whatsapp.sendTextMessage(
+      phone,
+      `✅ Ciudad: *${session.city}*${session.state ? `, ${session.state}` : ''}\n\n` +
+        `📝 *Paso 5 de ${TOTAL_STEPS}*\n\n` +
+        `¿En qué *zonas, colonias o fraccionamientos* de ${session.city} ofreces tus servicios?\n\n` +
         `Escríbelas separadas por coma.\n` +
-        `_(Ejemplo: Condesa, Roma Norte, Del Valle, Polanco)_`,
+        `_(Ejemplo: Centro, Zona Pronaf, Las Misiones)_`,
     );
   }
 
@@ -380,16 +480,19 @@ export class WhatsAppOnboardingHandler {
     if (zoneNames.length === 0) {
       await this.whatsapp.sendTextMessage(
         phone,
-        `❌ Escribe al menos una zona o colonia.\n_(Ejemplo: Condesa, Roma Norte, Del Valle)_`,
+        `❌ Escribe al menos una zona o colonia.\n_(Ejemplo: Centro, Zona Pronaf, Las Misiones)_`,
       );
       return;
     }
 
-    // Use ZonesService to find or create ServiceZone records
+    // Use ZonesService to find or create ServiceZone records for the provider's city
+    const city = session.city || 'Ciudad de México';
+    const state = session.state || '';
     try {
       const zoneIds = await this.zonesService.findZonesByNames(
         zoneNames,
-        'Ciudad de México',
+        city,
+        state,
       );
       session.serviceZoneIds = zoneIds;
       // Capitalize zone names for display
@@ -398,7 +501,6 @@ export class WhatsAppOnboardingHandler {
       );
     } catch (err) {
       this.logger.error(`Error finding/creating zones: ${err}`);
-      // Fallback: store names only, capitalize first letter
       session.serviceZones = zoneNames.map(
         (z) => z.charAt(0).toUpperCase() + z.slice(1),
       );
@@ -410,8 +512,8 @@ export class WhatsAppOnboardingHandler {
 
     await this.whatsapp.sendTextMessage(
       phone,
-      `✅ Zonas: ${(session.serviceZones || []).join(', ')}\n\n` +
-        `📝 *Paso 5 de 5 (opcional)*\n\n` +
+      `✅ Zonas en ${city}: ${(session.serviceZones || []).join(', ')}\n\n` +
+        `📝 *Paso 6 de ${TOTAL_STEPS} (opcional)*\n\n` +
         `Escribe una *descripción corta* sobre ti y tu trabajo. Esto lo verán los clientes.\n\n` +
         `_(Ejemplo: "Plomero con 10 años de experiencia, especialista en fugas y drenaje. Puntual y garantía en mi trabajo.")_\n\n` +
         `Escribe *"skip"* para omitir este paso.`,
@@ -465,7 +567,6 @@ export class WhatsAppOnboardingHandler {
       });
 
       if (user) {
-        // User exists (maybe registered as customer before) — upgrade to PROVIDER
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
@@ -477,7 +578,6 @@ export class WhatsAppOnboardingHandler {
           `Upgraded existing user ${user.id} to PROVIDER role`,
         );
       } else {
-        // Create new user as PROVIDER
         user = await this.prisma.user.create({
           data: {
             phone: dbPhone,
@@ -518,11 +618,9 @@ export class WhatsAppOnboardingHandler {
       // 4. Link service zones to the provider profile
       const zoneIds = session.serviceZoneIds || [];
       if (zoneIds.length > 0) {
-        // Clear existing zone links for this provider
         await this.prisma.providerServiceZone.deleteMany({
           where: { providerId: profile.id },
         });
-        // Create new links
         await Promise.all(
           zoneIds.map((zoneId) =>
             this.prisma.providerServiceZone.create({
@@ -553,6 +651,7 @@ export class WhatsAppOnboardingHandler {
           `👤 Nombre: ${session.name}\n` +
           `🔧 Servicios: ${categoryNames}\n` +
           `📅 Experiencia: ${session.yearsExperience || 0} años\n` +
+          `🏙 Ciudad: ${session.city || 'No especificada'}${session.state ? `, ${session.state}` : ''}\n` +
           `📍 Zonas: ${(session.serviceZones || []).join(', ')}\n` +
           `📝 Bio: ${session.bio || '(sin descripción)'}\n\n` +
           `─────────────────────\n\n` +
@@ -566,7 +665,7 @@ export class WhatsAppOnboardingHandler {
       );
 
       this.logger.log(
-        `✅ Provider auto-approved: ${session.name} (${dbPhone}) — profile ${profile.id}`,
+        `✅ Provider auto-approved: ${session.name} (${dbPhone}) in ${session.city} — profile ${profile.id}`,
       );
     } catch (error: any) {
       this.logger.error(
@@ -595,4 +694,3 @@ export class WhatsAppOnboardingHandler {
     return `+${cleaned}`;
   }
 }
-

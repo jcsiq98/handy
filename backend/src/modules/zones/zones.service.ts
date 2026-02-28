@@ -159,7 +159,7 @@ export class ZonesService {
    * Find zones by text names (fuzzy match for onboarding).
    * Returns matching zone IDs.
    */
-  async findZonesByNames(names: string[], city?: string): Promise<string[]> {
+  async findZonesByNames(names: string[], city?: string, state?: string): Promise<string[]> {
     const zoneIds: string[] = [];
 
     for (const name of names) {
@@ -185,12 +185,12 @@ export class ZonesService {
             data: {
               name: trimmed,
               city,
-              state: '',
+              state: state || '',
               country: 'MX',
             },
           });
           zoneIds.push(newZone.id);
-          this.logger.log(`Auto-created zone "${trimmed}" in ${city}`);
+          this.logger.log(`Auto-created zone "${trimmed}" in ${city}, ${state || '?'}`);
         }
       }
     }
