@@ -11,8 +11,11 @@ import {
 } from '../../../lib/api';
 import { io, Socket } from 'socket.io-client';
 
+// Derive WS URL from the same API URL used for REST calls
 const BACKEND_WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000';
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+const POLL_INTERVAL_MS = 5000; // poll every 5s as safety net
 
 export default function ChatPage() {
   const router = useRouter();
@@ -27,11 +30,14 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMessageTimeRef = useRef<string | null>(null);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback((smooth = true) => {
@@ -51,6 +57,11 @@ export default function ChatPage() {
       ]);
       setBooking(bookingData);
       setMessages(messagesData.data);
+      // Track the latest message time for polling
+      if (messagesData.data.length > 0) {
+        lastMessageTimeRef.current =
+          messagesData.data[messagesData.data.length - 1].createdAt;
+      }
       scrollToBottom(false);
     } catch (err: unknown) {
       console.error('Failed to load chat:', err);
@@ -76,6 +87,50 @@ export default function ChatPage() {
     }
   }, [isAuthenticated, bookingId, loadData]);
 
+  // Merge new messages from polling without duplicates
+  const mergeMessages = useCallback(
+    (newMessages: ChatMessage[]) => {
+      if (newMessages.length === 0) return;
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const toAdd = newMessages.filter((m) => !existingIds.has(m.id));
+        if (toAdd.length === 0) return prev;
+        const merged = [...prev, ...toAdd].sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+        // Update last message time
+        lastMessageTimeRef.current = merged[merged.length - 1].createdAt;
+        return merged;
+      });
+      scrollToBottom();
+    },
+    [scrollToBottom],
+  );
+
+  // Polling fallback — fetches new messages periodically
+  useEffect(() => {
+    if (!isAuthenticated || !bookingId || loading) return;
+
+    const poll = async () => {
+      try {
+        const res = await messagesApi.getHistory(bookingId, { limit: 20 });
+        mergeMessages(res.data);
+      } catch {
+        // Silent fail — polling is best-effort
+      }
+    };
+
+    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [isAuthenticated, bookingId, loading, mergeMessages]);
+
   // WebSocket connection for real-time messages
   useEffect(() => {
     if (!isAuthenticated || !bookingId) return;
@@ -86,23 +141,30 @@ export default function ChatPage() {
     const socket = io(`${BACKEND_WS_URL}/chat`, {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('Chat socket connected');
+      setWsConnected(true);
       // Join the booking room
       socket.emit('chat:join', { bookingId });
     });
 
     socket.on('message:new', (message: ChatMessage) => {
-      // Only add if it's for this booking and not from us
+      // Only add if it's for this booking
       if (message.bookingId === bookingId) {
         setMessages((prev) => {
           // Deduplicate
           if (prev.some((m) => m.id === message.id)) return prev;
-          return [...prev, message];
+          const updated = [...prev, message];
+          lastMessageTimeRef.current = message.createdAt;
+          return updated;
         });
         scrollToBottom();
       }
@@ -116,12 +178,19 @@ export default function ChatPage() {
 
     socket.on('disconnect', () => {
       console.log('Chat socket disconnected');
+      setWsConnected(false);
+    });
+
+    socket.on('connect_error', (err: Error) => {
+      console.warn('Chat socket connection error:', err.message);
+      setWsConnected(false);
     });
 
     return () => {
       socket.emit('chat:leave', { bookingId });
       socket.disconnect();
       socketRef.current = null;
+      setWsConnected(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, bookingId]);
@@ -252,9 +321,10 @@ export default function ChatPage() {
             <p className="font-semibold text-sm truncate">
               {otherParty?.name || 'Proveedor'}
             </p>
-            <p className="text-[10px] text-indigo-200 truncate">
+            <p className="text-[10px] text-indigo-200 truncate flex items-center gap-1">
               {booking?.category?.icon} {booking?.category?.name || 'Servicio'}{' '}
               · #{bookingId.slice(0, 6)}
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`} title={wsConnected ? 'En vivo' : 'Actualizando...'} />
             </p>
           </div>
         </div>
