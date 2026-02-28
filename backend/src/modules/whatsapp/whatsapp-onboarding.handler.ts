@@ -22,7 +22,8 @@ interface OnboardingSession {
   name?: string;
   categories?: string[];
   yearsExperience?: number;
-  serviceZones?: string[];
+  serviceZones?: string[]; // zone names (for display)
+  serviceZoneIds?: string[]; // zone UUIDs (for DB relations)
   bio?: string;
 }
 
@@ -371,12 +372,12 @@ export class WhatsAppOnboardingHandler {
     text: string,
     session: OnboardingSession,
   ): Promise<void> {
-    const zones = text
+    const zoneNames = text
       .split(',')
       .map((z) => z.trim())
       .filter((z) => z.length > 0);
 
-    if (zones.length === 0) {
+    if (zoneNames.length === 0) {
       await this.whatsapp.sendTextMessage(
         phone,
         `❌ Escribe al menos una zona o colonia.\n_(Ejemplo: Condesa, Roma Norte, Del Valle)_`,
@@ -384,16 +385,32 @@ export class WhatsAppOnboardingHandler {
       return;
     }
 
-    // Capitalize first letter of each zone
-    session.serviceZones = zones.map(
-      (z) => z.charAt(0).toUpperCase() + z.slice(1),
-    );
+    // Use ZonesService to find or create ServiceZone records
+    try {
+      const zoneIds = await this.zonesService.findZonesByNames(
+        zoneNames,
+        'Ciudad de México',
+      );
+      session.serviceZoneIds = zoneIds;
+      // Capitalize zone names for display
+      session.serviceZones = zoneNames.map(
+        (z) => z.charAt(0).toUpperCase() + z.slice(1),
+      );
+    } catch (err) {
+      this.logger.error(`Error finding/creating zones: ${err}`);
+      // Fallback: store names only, capitalize first letter
+      session.serviceZones = zoneNames.map(
+        (z) => z.charAt(0).toUpperCase() + z.slice(1),
+      );
+      session.serviceZoneIds = [];
+    }
+
     session.step = OnboardingStep.BIO;
     await this.setSession(phone, session);
 
     await this.whatsapp.sendTextMessage(
       phone,
-      `✅ Zonas: ${session.serviceZones.join(', ')}\n\n` +
+      `✅ Zonas: ${(session.serviceZones || []).join(', ')}\n\n` +
         `📝 *Paso 5 de 5 (opcional)*\n\n` +
         `Escribe una *descripción corta* sobre ti y tu trabajo. Esto lo verán los clientes.\n\n` +
         `_(Ejemplo: "Plomero con 10 años de experiencia, especialista en fugas y drenaje. Puntual y garantía en mi trabajo.")_\n\n` +
@@ -412,10 +429,11 @@ export class WhatsAppOnboardingHandler {
       session.bio = text.trim();
     }
 
-    // Save the application to the database
+    // Save application AND auto-approve (create User + ProviderProfile)
     try {
       const dbPhone = this.normalizePhoneForDb(phone);
 
+      // 1. Save / update the ProviderApplication
       const application = await this.prisma.providerApplication.upsert({
         where: { phone: dbPhone },
         update: {
@@ -425,7 +443,7 @@ export class WhatsAppOnboardingHandler {
           categories: session.categories || [],
           serviceZones: session.serviceZones || [],
           onboardingStep: OnboardingStep.REVIEW,
-          verificationStatus: 'PENDING',
+          verificationStatus: 'APPROVED', // Auto-approve for MVP
         },
         create: {
           phone: dbPhone,
@@ -435,15 +453,92 @@ export class WhatsAppOnboardingHandler {
           categories: session.categories || [],
           serviceZones: session.serviceZones || [],
           onboardingStep: OnboardingStep.REVIEW,
-          verificationStatus: 'PENDING',
+          verificationStatus: 'APPROVED', // Auto-approve for MVP
         },
       });
 
       session.applicationId = application.id;
-      session.step = OnboardingStep.REVIEW;
-      await this.setSession(phone, session);
 
-      // Send summary
+      // 2. Create User (or update if exists) with role PROVIDER
+      let user = await this.prisma.user.findUnique({
+        where: { phone: dbPhone },
+      });
+
+      if (user) {
+        // User exists (maybe registered as customer before) — upgrade to PROVIDER
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            name: session.name || user.name,
+            role: 'PROVIDER',
+          },
+        });
+        this.logger.log(
+          `Upgraded existing user ${user.id} to PROVIDER role`,
+        );
+      } else {
+        // Create new user as PROVIDER
+        user = await this.prisma.user.create({
+          data: {
+            phone: dbPhone,
+            name: session.name || null,
+            role: 'PROVIDER',
+          },
+        });
+        this.logger.log(
+          `Created new PROVIDER user: ${user.id} (${dbPhone})`,
+        );
+      }
+
+      // 3. Create ProviderProfile (or update if exists)
+      let profile = await this.prisma.providerProfile.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (profile) {
+        profile = await this.prisma.providerProfile.update({
+          where: { id: profile.id },
+          data: {
+            bio: session.bio || profile.bio,
+            serviceTypes: session.categories || [],
+            isAvailable: true,
+          },
+        });
+      } else {
+        profile = await this.prisma.providerProfile.create({
+          data: {
+            userId: user.id,
+            bio: session.bio || null,
+            serviceTypes: session.categories || [],
+            isAvailable: true,
+          },
+        });
+      }
+
+      // 4. Link service zones to the provider profile
+      const zoneIds = session.serviceZoneIds || [];
+      if (zoneIds.length > 0) {
+        // Clear existing zone links for this provider
+        await this.prisma.providerServiceZone.deleteMany({
+          where: { providerId: profile.id },
+        });
+        // Create new links
+        await Promise.all(
+          zoneIds.map((zoneId) =>
+            this.prisma.providerServiceZone.create({
+              data: { providerId: profile!.id, zoneId },
+            }),
+          ),
+        );
+        this.logger.log(
+          `Linked ${zoneIds.length} zones to provider ${profile.id}`,
+        );
+      }
+
+      // 5. Clear onboarding session — provider is now registered
+      await this.clearSession(phone);
+
+      // 6. Send success summary
       const categorySlugs = session.categories || [];
       const categoryNames = categorySlugs
         .map((slug) => {
@@ -454,29 +549,33 @@ export class WhatsAppOnboardingHandler {
 
       await this.whatsapp.sendTextMessage(
         phone,
-        `📋 *Resumen de tu solicitud:*\n\n` +
+        `📋 *Resumen de tu registro:*\n\n` +
           `👤 Nombre: ${session.name}\n` +
           `🔧 Servicios: ${categoryNames}\n` +
           `📅 Experiencia: ${session.yearsExperience || 0} años\n` +
           `📍 Zonas: ${(session.serviceZones || []).join(', ')}\n` +
-          `📝 Bio: ${session.bio || '(sin descripción)'}\n` +
-          `📸 Identidad: Pendiente de verificación\n\n` +
+          `📝 Bio: ${session.bio || '(sin descripción)'}\n\n` +
           `─────────────────────\n\n` +
-          `✅ *¡Solicitud enviada!*\n\n` +
-          `Te notificaremos cuando tu cuenta sea aprobada (24-48 horas).\n\n` +
-          `¡Gracias por tu interés en Handy! 🙌`,
+          `🎉 *¡Tu cuenta ha sido activada!*\n\n` +
+          `Ya estás registrado como proveedor en Handy. ` +
+          `A partir de ahora recibirás notificaciones de nuevos trabajos directamente aquí en WhatsApp.\n\n` +
+          `📋 Comandos disponibles:\n` +
+          `• *"menu"* — Ver tu panel\n` +
+          `• *"ayuda"* — Ver opciones\n\n` +
+          `¡Bienvenido a Handy! 🙌`,
       );
 
       this.logger.log(
-        `New provider application from ${phone}: ${session.name} (${categorySlugs.join(', ')})`,
+        `✅ Provider auto-approved: ${session.name} (${dbPhone}) — profile ${profile.id}`,
       );
     } catch (error: any) {
       this.logger.error(
-        `Error saving provider application: ${error.message}`,
+        `Error creating provider: ${error.message}`,
+        error.stack,
       );
       await this.whatsapp.sendTextMessage(
         phone,
-        `❌ Ocurrió un error guardando tu solicitud. Intenta de nuevo enviando cualquier mensaje.`,
+        `❌ Ocurrió un error guardando tu registro. Intenta de nuevo enviando cualquier mensaje.`,
       );
       await this.clearSession(phone);
     }
