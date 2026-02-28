@@ -16,8 +16,10 @@ export class ProvidersController {
 
   @Get()
   @Public()
-  @ApiOperation({ summary: 'List providers, optionally filtered by category' })
+  @ApiOperation({ summary: 'List providers, optionally filtered by category, zone, or city' })
   @ApiQuery({ name: 'category', required: false, description: 'Category slug (e.g. plumbing)' })
+  @ApiQuery({ name: 'zone', required: false, description: 'Zone ID to filter by' })
+  @ApiQuery({ name: 'city', required: false, description: 'City name to filter by' })
   @ApiQuery({ name: 'lat', required: false, type: Number, description: 'Latitude for distance sorting' })
   @ApiQuery({ name: 'lng', required: false, type: Number, description: 'Longitude for distance sorting' })
   @ApiQuery({ name: 'sort', required: false, enum: ['rating', 'distance', 'jobs'], description: 'Sort order' })
@@ -25,6 +27,8 @@ export class ProvidersController {
   @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Offset for pagination' })
   async listProviders(
     @Query('category') category?: string,
+    @Query('zone') zone?: string,
+    @Query('city') city?: string,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('sort') sort?: string,
@@ -33,6 +37,8 @@ export class ProvidersController {
   ) {
     return this.providersService.listProviders({
       category: category || undefined,
+      zone: zone || undefined,
+      city: city || undefined,
       lat: lat ? parseFloat(lat) : undefined,
       lng: lng ? parseFloat(lng) : undefined,
       sortBy: (sort as 'rating' | 'distance' | 'jobs') || 'rating',

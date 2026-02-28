@@ -13,13 +13,15 @@ export class ProvidersService {
    */
   async listProviders(options: {
     category?: string;
+    zone?: string;
+    city?: string;
     lat?: number;
     lng?: number;
     sortBy?: 'rating' | 'distance' | 'jobs';
     limit?: number;
     offset?: number;
   }) {
-    const { category, lat, lng, sortBy = 'rating', limit = 20, offset = 0 } = options;
+    const { category, zone, city, lat, lng, sortBy = 'rating', limit = 20, offset = 0 } = options;
 
     // Build where clause
     const where: Prisma.ProviderProfileWhereInput = {
@@ -29,6 +31,20 @@ export class ProvidersService {
     // Filter by category slug if provided
     if (category) {
       where.serviceTypes = { array_contains: [category] };
+    }
+
+    // Filter by zone ID
+    if (zone) {
+      where.serviceZones = { some: { zoneId: zone } };
+    }
+
+    // Filter by city (providers that serve any zone in that city)
+    if (city) {
+      where.serviceZones = {
+        some: {
+          zone: { city: { equals: city, mode: 'insensitive' } },
+        },
+      };
     }
 
     // Determine ordering
@@ -60,6 +76,13 @@ export class ProvidersService {
               ratingCount: true,
             },
           },
+          serviceZones: {
+            include: {
+              zone: {
+                select: { id: true, name: true, city: true },
+              },
+            },
+          },
         },
         orderBy,
         take: limit,
@@ -83,6 +106,11 @@ export class ProvidersService {
         isAvailable: p.isAvailable,
         locationLat: p.locationLat,
         locationLng: p.locationLng,
+        zones: p.serviceZones.map((sz) => ({
+          id: sz.zone.id,
+          name: sz.zone.name,
+          city: sz.zone.city,
+        })),
       };
 
       // Calculate distance if coordinates provided
@@ -127,6 +155,13 @@ export class ProvidersService {
             createdAt: true,
           },
         },
+        serviceZones: {
+          include: {
+            zone: {
+              select: { id: true, name: true, city: true, state: true },
+            },
+          },
+        },
       },
     });
 
@@ -165,6 +200,12 @@ export class ProvidersService {
       locationLat: provider.locationLat,
       locationLng: provider.locationLng,
       memberSince: provider.user.createdAt,
+      zones: provider.serviceZones.map((sz) => ({
+        id: sz.zone.id,
+        name: sz.zone.name,
+        city: sz.zone.city,
+        state: sz.zone.state,
+      })),
       reviews: reviews.map((r) => ({
         id: r.id,
         score: r.score,

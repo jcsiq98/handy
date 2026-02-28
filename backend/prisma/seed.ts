@@ -309,6 +309,104 @@ async function main() {
 
   console.log(`✅ ${providers.length} providers created with profiles`);
 
+  // ── Service Zones ──
+  const zonesData = [
+    // CDMX
+    { name: 'Condesa', city: 'Ciudad de México', state: 'CDMX', lat: 19.4115, lng: -99.1733 },
+    { name: 'Roma Norte', city: 'Ciudad de México', state: 'CDMX', lat: 19.4195, lng: -99.1596 },
+    { name: 'Roma Sur', city: 'Ciudad de México', state: 'CDMX', lat: 19.4100, lng: -99.1600 },
+    { name: 'Polanco', city: 'Ciudad de México', state: 'CDMX', lat: 19.4333, lng: -99.1980 },
+    { name: 'Del Valle', city: 'Ciudad de México', state: 'CDMX', lat: 19.3880, lng: -99.1690 },
+    { name: 'Narvarte', city: 'Ciudad de México', state: 'CDMX', lat: 19.3950, lng: -99.1560 },
+    { name: 'Coyoacán', city: 'Ciudad de México', state: 'CDMX', lat: 19.3500, lng: -99.1620 },
+    { name: 'Centro Histórico', city: 'Ciudad de México', state: 'CDMX', lat: 19.4326, lng: -99.1332 },
+    { name: 'Juárez', city: 'Ciudad de México', state: 'CDMX', lat: 19.4270, lng: -99.1620 },
+    { name: 'Cuauhtémoc', city: 'Ciudad de México', state: 'CDMX', lat: 19.4380, lng: -99.1530 },
+    { name: 'Santa Fe', city: 'Ciudad de México', state: 'CDMX', lat: 19.3590, lng: -99.2760 },
+    { name: 'Tlalpan', city: 'Ciudad de México', state: 'CDMX', lat: 19.2870, lng: -99.1680 },
+    { name: 'Xochimilco', city: 'Ciudad de México', state: 'CDMX', lat: 19.2610, lng: -99.1040 },
+    { name: 'Napoles', city: 'Ciudad de México', state: 'CDMX', lat: 19.3930, lng: -99.1760 },
+    { name: 'Escandón', city: 'Ciudad de México', state: 'CDMX', lat: 19.4030, lng: -99.1800 },
+    // Monterrey
+    { name: 'San Pedro Garza García', city: 'Monterrey', state: 'Nuevo León', lat: 25.6580, lng: -100.4030 },
+    { name: 'Valle', city: 'Monterrey', state: 'Nuevo León', lat: 25.6330, lng: -100.2820 },
+    { name: 'Cumbres', city: 'Monterrey', state: 'Nuevo León', lat: 25.7470, lng: -100.3960 },
+    { name: 'Centro Monterrey', city: 'Monterrey', state: 'Nuevo León', lat: 25.6714, lng: -100.3090 },
+    { name: 'Contry', city: 'Monterrey', state: 'Nuevo León', lat: 25.6400, lng: -100.3160 },
+    // Guadalajara
+    { name: 'Chapultepec', city: 'Guadalajara', state: 'Jalisco', lat: 20.6730, lng: -103.3800 },
+    { name: 'Providencia', city: 'Guadalajara', state: 'Jalisco', lat: 20.6910, lng: -103.3920 },
+    { name: 'Americana', city: 'Guadalajara', state: 'Jalisco', lat: 20.6760, lng: -103.3700 },
+    { name: 'Centro Guadalajara', city: 'Guadalajara', state: 'Jalisco', lat: 20.6765, lng: -103.3474 },
+    { name: 'Zapopan Centro', city: 'Guadalajara', state: 'Jalisco', lat: 20.7167, lng: -103.3890 },
+    // Ciudad Juárez
+    { name: 'Pronaf', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7380, lng: -106.4510 },
+    { name: 'Centro Ciudad Juárez', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7400, lng: -106.4870 },
+    { name: 'Las Misiones', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.6540, lng: -106.3870 },
+    { name: 'Partido Romero', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7100, lng: -106.4600 },
+    { name: 'Campestre', city: 'Ciudad Juárez', state: 'Chihuahua', lat: 31.7250, lng: -106.4200 },
+  ];
+
+  const zoneRecords: { id: string; name: string; city: string }[] = [];
+
+  for (const z of zonesData) {
+    const zone = await prisma.serviceZone.upsert({
+      where: { name_city: { name: z.name, city: z.city } },
+      update: { lat: z.lat, lng: z.lng, state: z.state },
+      create: {
+        name: z.name,
+        city: z.city,
+        state: z.state,
+        country: 'MX',
+        lat: z.lat,
+        lng: z.lng,
+      },
+    });
+    zoneRecords.push({ id: zone.id, name: zone.name, city: zone.city });
+  }
+
+  console.log(`✅ ${zoneRecords.length} service zones created`);
+
+  // ── Assign zones to providers ──
+  // All seed providers are in CDMX — assign 2-4 CDMX zones each
+  const cdmxZones = zoneRecords.filter(z => z.city === 'Ciudad de México');
+  const providerZoneAssignments: Record<string, string[]> = {
+    'Carlos Mendoza': ['Centro Histórico', 'Cuauhtémoc', 'Juárez'],
+    'Roberto Hernández': ['Roma Norte', 'Condesa', 'Juárez', 'Cuauhtémoc'],
+    'María Guadalupe López': ['Roma Norte', 'Roma Sur', 'Condesa', 'Narvarte'],
+    'José Antonio García': ['Polanco', 'Condesa', 'Escandón'],
+    'Fernando Ruiz Ortega': ['Del Valle', 'Narvarte', 'Napoles', 'Escandón'],
+    'Ricardo Torres Luna': ['Centro Histórico', 'Roma Norte', 'Juárez', 'Cuauhtémoc'],
+    'Miguel Ángel Vásquez': ['Polanco', 'Santa Fe', 'Condesa'],
+    'Luis Enrique Morales': ['Del Valle', 'Coyoacán', 'Tlalpan', 'Narvarte'],
+    'Patricia Sánchez Romero': ['Roma Norte', 'Roma Sur', 'Del Valle', 'Condesa'],
+    'Alejandro Díaz Herrera': ['Centro Histórico', 'Cuauhtémoc', 'Roma Norte', 'Juárez'],
+    'Sofía Ramírez Guerrero': ['Polanco', 'Condesa', 'Escandón', 'Napoles'],
+    'Eduardo Castillo Méndez': ['Coyoacán', 'Del Valle', 'Tlalpan', 'Xochimilco'],
+  };
+
+  // Clear existing assignments
+  await prisma.providerServiceZone.deleteMany({});
+
+  let zoneAssignCount = 0;
+  for (const provider of providerRecords) {
+    const zoneNames = providerZoneAssignments[provider.name] || ['Centro Histórico', 'Roma Norte'];
+    for (const zoneName of zoneNames) {
+      const zone = cdmxZones.find(z => z.name === zoneName);
+      if (zone) {
+        await prisma.providerServiceZone.create({
+          data: {
+            providerId: provider.profileId,
+            zoneId: zone.id,
+          },
+        });
+        zoneAssignCount++;
+      }
+    }
+  }
+
+  console.log(`✅ ${zoneAssignCount} provider-zone assignments created`);
+
   // ── Sample Customers ──
   const customers = [
     { phone: '+5215500000001', name: 'Ana Martínez' },

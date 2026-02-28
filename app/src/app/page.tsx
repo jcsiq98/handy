@@ -6,9 +6,12 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   servicesApi,
   providersApi,
+  zonesApi,
   type ServiceCategory,
   type ProviderSummary,
+  type CityInfo,
 } from '../lib/api';
+import { useLocation } from '../lib/use-location';
 import ErrorState from '../components/ui/error-state';
 import { CategoryGridSkeleton, CardListSkeleton } from '../components/ui/skeleton';
 
@@ -26,24 +29,28 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function HomePage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const location = useLocation();
 
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [featuredProviders, setFeaturedProviders] = useState<ProviderSummary[]>([]);
+  const [cities, setCities] = useState<CityInfo[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCityPicker, setShowCityPicker] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (city?: string) => {
     try {
       setError(null);
-      const [cats, provRes] = await Promise.all([
+      const [cats, provRes, citiesRes] = await Promise.all([
         servicesApi.getCategories(),
-        providersApi.list({ sort: 'rating', limit: 4 }),
+        providersApi.list({ sort: 'rating', limit: 4, city: city || undefined }),
+        zonesApi.getCities(),
       ]);
       setCategories(cats);
       setFeaturedProviders(provRes.data);
+      setCities(citiesRes);
     } catch (err: unknown) {
       console.error('Failed to load home data:', err);
-      // If unauthorized, clear tokens and redirect
       if (err && typeof err === 'object' && 'status' in err && (err as any).status === 401) {
         localStorage.removeItem('handy_access_token');
         localStorage.removeItem('handy_refresh_token');
@@ -64,9 +71,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadData();
+      loadData(location.selectedCity || undefined);
     }
-  }, [isAuthenticated, loadData]);
+  }, [isAuthenticated, loadData, location.selectedCity]);
 
   if (isLoading) {
     return (
@@ -126,7 +133,118 @@ export default function HomePage() {
             🔍
           </span>
         </div>
+
+        {/* Location bar */}
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            onClick={() => setShowCityPicker(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm text-sm font-medium hover:bg-white/30 transition-colors"
+          >
+            <span>📍</span>
+            <span className="truncate max-w-[140px]">
+              {location.selectedCity || 'Todas las ciudades'}
+            </span>
+            <span className="text-xs opacity-70">▼</span>
+          </button>
+          {!location.selectedCity && (
+            <button
+              onClick={location.detectLocation}
+              disabled={location.loading}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm text-xs font-medium hover:bg-white/30 transition-colors"
+            >
+              {location.loading ? (
+                <div className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>🎯</span>
+                  <span>Detectar</span>
+                </>
+              )}
+            </button>
+          )}
+          {location.selectedCity && (
+            <button
+              onClick={() => {
+                location.clearLocation();
+              }}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/10 text-xs hover:bg-white/20 transition-colors"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* City Picker Modal */}
+      {showCityPicker && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[70vh] overflow-hidden animate-slide-up">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-lg text-gray-800">📍 Selecciona tu ciudad</h3>
+              <button
+                onClick={() => setShowCityPicker(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[55vh] p-3">
+              {/* All cities option */}
+              <button
+                onClick={() => {
+                  location.clearLocation();
+                  setShowCityPicker(false);
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-colors ${
+                  !location.selectedCity
+                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                <span className="text-lg mr-2">🌎</span>
+                Todas las ciudades
+              </button>
+
+              {cities.map((c) => (
+                <button
+                  key={c.city}
+                  onClick={() => {
+                    location.setCity(c.city);
+                    setShowCityPicker(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-colors ${
+                    location.selectedCity === c.city
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-lg mr-2">🏙️</span>
+                      {c.city}
+                      <span className="text-gray-400 text-xs ml-2">{c.state}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{c.zoneCount} zonas</span>
+                  </div>
+                </button>
+              ))}
+
+              {/* GPS button */}
+              <button
+                onClick={async () => {
+                  await location.detectLocation();
+                  setShowCityPicker(false);
+                }}
+                disabled={location.loading}
+                className="w-full text-left px-4 py-3 rounded-xl mt-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors font-medium"
+              >
+                <span className="text-lg mr-2">🎯</span>
+                {location.loading ? 'Detectando...' : 'Usar mi ubicación GPS'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="flex-1 px-5 py-6">
@@ -221,6 +339,12 @@ export default function HomePage() {
                       <p className="text-sm text-gray-500">
                         {mainService} · {provider.totalJobs} trabajos
                       </p>
+                      {provider.zones && provider.zones.length > 0 && (
+                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                          📍 {provider.zones.slice(0, 2).map(z => z.name).join(', ')}
+                          {provider.zones.length > 2 && ` +${provider.zones.length - 2}`}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <span className="text-yellow-500 text-sm">⭐</span>

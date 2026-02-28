@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../config/redis.service';
 import { WhatsAppService } from './whatsapp.service';
+import { ZonesService } from '../zones/zones.service';
 
 // ─── Onboarding steps ─────────────────────────────────────
 
@@ -48,6 +49,7 @@ export class WhatsAppOnboardingHandler {
     private whatsapp: WhatsAppService,
     private prisma: PrismaService,
     private redis: RedisService,
+    private zonesService: ZonesService,
   ) {}
 
   // ─── Session management ──────────────────────────────────

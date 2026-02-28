@@ -6,9 +6,12 @@ import { useAuth } from '../../lib/auth-context';
 import {
   providersApi,
   servicesApi,
+  zonesApi,
   type ProviderSummary,
   type ServiceCategory,
+  type ServiceZone,
 } from '../../lib/api';
+import { useLocation } from '../../lib/use-location';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import { CardListSkeleton } from '../../components/ui/skeleton';
@@ -28,12 +31,16 @@ function ProvidersListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const location = useLocation();
 
   const categorySlug = searchParams.get('category') || '';
 
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [zones, setZones] = useState<ServiceZone[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(categorySlug);
+  const [selectedZone, setSelectedZone] = useState<string>('');
+  const [showZoneFilter, setShowZoneFilter] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -52,13 +59,26 @@ function ProvidersListContent() {
     }
   }, []);
 
+  const loadZones = useCallback(async () => {
+    try {
+      const z = await zonesApi.list({
+        city: location.selectedCity || undefined,
+      });
+      setZones(z);
+    } catch (err) {
+      console.error('Failed to load zones:', err);
+    }
+  }, [location.selectedCity]);
+
   const loadProviders = useCallback(
-    async (category: string) => {
+    async (category: string, zoneId?: string) => {
       setLoading(true);
       setError(null);
       try {
         const res = await providersApi.list({
           category: category || undefined,
+          zone: zoneId || undefined,
+          city: !zoneId ? (location.selectedCity || undefined) : undefined,
           sort: 'rating',
           limit: 50,
         });
@@ -71,7 +91,7 @@ function ProvidersListContent() {
         setLoading(false);
       }
     },
-    [],
+    [location.selectedCity],
   );
 
   useEffect(() => {
@@ -83,24 +103,29 @@ function ProvidersListContent() {
   useEffect(() => {
     if (isAuthenticated) {
       loadCategories();
+      loadZones();
     }
-  }, [isAuthenticated, loadCategories]);
+  }, [isAuthenticated, loadCategories, loadZones]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadProviders(selectedCategory);
+      loadProviders(selectedCategory, selectedZone || undefined);
     }
-  }, [isAuthenticated, selectedCategory, loadProviders]);
+  }, [isAuthenticated, selectedCategory, selectedZone, loadProviders]);
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug);
-    // Update URL without full navigation
     const url = slug ? `/providers?category=${slug}` : '/providers';
     window.history.replaceState(null, '', url);
   };
 
+  const handleZoneChange = (zoneId: string) => {
+    setSelectedZone(zoneId);
+    setShowZoneFilter(false);
+  };
+
   const handleRefresh = () => {
-    loadProviders(selectedCategory);
+    loadProviders(selectedCategory, selectedZone || undefined);
   };
 
   if (authLoading || !isAuthenticated) return null;
@@ -155,7 +180,84 @@ function ProvidersListContent() {
             </button>
           ))}
         </div>
+
+        {/* Zone filter bar */}
+        <div className="flex items-center gap-2 mt-2 -mx-4 px-4 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setShowZoneFilter(!showZoneFilter)}
+            className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              selectedZone
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            📍 {selectedZone
+              ? zones.find(z => z.id === selectedZone)?.name || 'Zona'
+              : location.selectedCity || 'Filtrar por zona'}
+            <span className="text-[10px] opacity-60">▼</span>
+          </button>
+          {selectedZone && (
+            <button
+              onClick={() => setSelectedZone('')}
+              className="shrink-0 px-2 py-1.5 rounded-full text-xs bg-gray-100 text-gray-500 hover:bg-gray-200"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Zone picker dropdown */}
+      {showZoneFilter && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[70vh] overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-lg text-gray-800">📍 Filtrar por zona</h3>
+              <button
+                onClick={() => setShowZoneFilter(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[55vh] p-3">
+              <button
+                onClick={() => handleZoneChange('')}
+                className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-colors ${
+                  !selectedZone
+                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                🌎 Todas las zonas
+              </button>
+              {zones.map((z) => (
+                <button
+                  key={z.id}
+                  onClick={() => handleZoneChange(z.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-colors ${
+                    selectedZone === z.id
+                      ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>📍 {z.name}</span>
+                    <span className="text-xs text-gray-400">
+                      {z.providerCount} proveedores
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {zones.length === 0 && (
+                <p className="text-center text-gray-400 text-sm py-6">
+                  No hay zonas disponibles
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Provider list */}
       <main className="flex-1 px-4 py-4">
@@ -233,7 +335,7 @@ function ProvidersListContent() {
                       {provider.bio}
                     </p>
 
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className="text-xs text-gray-500">
                         {mainService}
                       </span>
@@ -249,6 +351,16 @@ function ProvidersListContent() {
                         </span>
                       )}
                     </div>
+                    {/* Zones */}
+                    {provider.zones && provider.zones.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                        <span className="text-[10px] text-gray-400">📍</span>
+                        <span className="text-[10px] text-gray-400 truncate">
+                          {provider.zones.slice(0, 3).map(z => z.name).join(', ')}
+                          {provider.zones.length > 3 && ` +${provider.zones.length - 3}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </button>
               );

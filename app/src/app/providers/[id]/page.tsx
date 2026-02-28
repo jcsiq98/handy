@@ -304,6 +304,30 @@ export default function ProviderProfilePage() {
           </div>
         </section>
 
+        {/* Service Zones */}
+        {provider.zones && provider.zones.length > 0 && (
+          <section className="bg-white rounded-2xl p-4 border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-800 mb-3">
+              📍 Zonas de servicio
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {provider.zones.map((zone) => (
+                <span
+                  key={zone.id}
+                  className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium"
+                >
+                  {zone.name}
+                </span>
+              ))}
+            </div>
+            {provider.zones.length > 0 && (
+              <p className="text-[11px] text-gray-400 mt-2">
+                {provider.zones[0].city}
+              </p>
+            )}
+          </section>
+        )}
+
         {/* Reviews */}
         <section>
           <div className="flex items-center justify-between mb-3">

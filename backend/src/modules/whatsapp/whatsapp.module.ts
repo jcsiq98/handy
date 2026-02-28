@@ -8,6 +8,7 @@ import { WhatsAppNotificationQueueService } from './whatsapp-notification-queue.
 import { BookingsModule } from '../bookings/bookings.module';
 import { MessagesModule } from '../messages/messages.module';
 import { RatingsModule } from '../ratings/ratings.module';
+import { ZonesModule } from '../zones/zones.module';
 
 /**
  * WhatsApp integration module.
@@ -20,6 +21,7 @@ import { RatingsModule } from '../ratings/ratings.module';
     BookingsModule, // To access BookingsGateway
     forwardRef(() => MessagesModule), // To save bridged messages
     RatingsModule, // For WA rating flow
+    ZonesModule, // For onboarding zone matching
   ],
   controllers: [WhatsAppController],
   providers: [

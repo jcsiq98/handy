@@ -195,6 +195,13 @@ export const servicesApi = {
 
 // ─── Providers ───────────────────────────────────────────────
 
+export interface ZoneSummary {
+  id: string;
+  name: string;
+  city: string;
+  state?: string;
+}
+
 export interface ProviderSummary {
   id: string;
   userId: string;
@@ -210,6 +217,7 @@ export interface ProviderSummary {
   locationLat: number | null;
   locationLng: number | null;
   distance?: number;
+  zones?: ZoneSummary[];
 }
 
 export interface ProviderListResponse {
@@ -231,6 +239,7 @@ export interface Review {
 export interface ProviderDetail extends ProviderSummary {
   serviceNames: Record<string, string>;
   memberSince: string;
+  zones?: ZoneSummary[];
   reviews: Review[];
 }
 
@@ -245,6 +254,8 @@ export interface ReviewsResponse {
 export const providersApi = {
   list: (params?: {
     category?: string;
+    zone?: string;
+    city?: string;
     lat?: number;
     lng?: number;
     sort?: 'rating' | 'distance' | 'jobs';
@@ -253,6 +264,8 @@ export const providersApi = {
   }) => {
     const searchParams = new URLSearchParams();
     if (params?.category) searchParams.set('category', params.category);
+    if (params?.zone) searchParams.set('zone', params.zone);
+    if (params?.city) searchParams.set('city', params.city);
     if (params?.lat !== undefined) searchParams.set('lat', String(params.lat));
     if (params?.lng !== undefined) searchParams.set('lng', String(params.lng));
     if (params?.sort) searchParams.set('sort', params.sort);
@@ -449,5 +462,49 @@ export const ratingsApi = {
 
   getMyRating: (bookingId: string) =>
     api<MyRatingResponse>(`/bookings/${bookingId}/my-rating`),
+};
+
+// ─── Zones / Location ────────────────────────────────────────
+
+export interface ServiceZone {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  providerCount: number;
+}
+
+export interface CityInfo {
+  city: string;
+  state: string;
+  zoneCount: number;
+}
+
+export interface NearestZone {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  distance: number;
+}
+
+export const zonesApi = {
+  list: (params?: { city?: string; state?: string; search?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.city) searchParams.set('city', params.city);
+    if (params?.state) searchParams.set('state', params.state);
+    if (params?.search) searchParams.set('search', params.search);
+    const qs = searchParams.toString();
+    return api<ServiceZone[]>(`/zones${qs ? `?${qs}` : ''}`, { skipAuth: true });
+  },
+
+  getCities: () =>
+    api<CityInfo[]>('/zones/cities', { skipAuth: true }),
+
+  findNearest: (lat: number, lng: number) =>
+    api<NearestZone>(`/zones/nearest?lat=${lat}&lng=${lng}`, { skipAuth: true }),
 };
 

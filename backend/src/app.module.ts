@@ -13,6 +13,7 @@ import { ProvidersModule } from './modules/providers/providers.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
+import { ZonesModule } from './modules/zones/zones.module';
 import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
@@ -51,6 +52,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     BookingsModule,
     MessagesModule,
     RatingsModule,
+    ZonesModule,
   ],
   controllers: [AppController],
   providers: [
