@@ -102,6 +102,25 @@
 
 ## 📱 WhatsApp Cloud API — Meta
 
+### Sandbox vs Producción
+
+| | 🧪 Sandbox (desarrollo) | 🚀 Producción |
+|---|---|---|
+| Quién puede recibir mensajes | Solo números agregados manualmente (~5) | **Cualquier persona** |
+| Cómo agregar números | Manual en developers.facebook.com | Automático — quien escriba, recibe |
+| Costo | Gratis | Por conversación (ver abajo) |
+| Requisito | Solo token de developer | Verificación de negocio con Meta |
+| Ideal para | Pruebas internas, MVP cerrado | Lanzamiento público |
+
+### Cómo pasar a producción (4 pasos)
+
+1. **Crear Meta Business Account** → [business.facebook.com](https://business.facebook.com)
+2. **Verificar tu negocio** → RFC, acta constitutiva, factura de servicios, o dominio web
+3. **Registrar un número dedicado** → Un número que NO esté en WhatsApp personal (puede ser Twilio, segundo chip, etc.)
+4. **Solicitar acceso a producción** → developers.facebook.com → Tu App → WhatsApp → API Setup → "Request Production Access" (1-3 días hábiles)
+
+> ✅ Una vez aprobado, cualquier persona puede mandar mensaje al número de Handy y recibir respuesta automática. No más agregar números manualmente.
+
 ### Modelo de precios
 
 Meta cobra por **conversación**, no por mensaje. Una conversación dura 24 horas desde el primer mensaje.
@@ -117,10 +136,11 @@ Meta cobra por **conversación**, no por mensaje. Una conversación dura 24 hora
 - Notificación de nuevo booking = business-initiated ($0.035)
 - Respuesta del proveedor = service (gratis, dentro de 24h)
 - Chat durante el booking = service (gratis)
+- Onboarding completo de un proveedor = 1 conversación ($0.0085 si el proveedor escribe primero)
 
 | Escenario | Conversaciones/mes | Costo |
 |---|---|---|
-| Demo | 10-50 | **$0** (free tier) |
+| Demo (sandbox) | 10-50 | **$0** (sandbox gratis) |
 | 100 bookings/mes | ~100 | **$0** (free tier cubre 1,000) |
 | 1,000 bookings/mes | ~1,000 | **$0 — $3.50** |
 | 5,000 bookings/mes | ~5,000 | **$140/mes** |
