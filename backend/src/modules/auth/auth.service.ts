@@ -20,13 +20,32 @@ export class AuthService {
   private readonly REFRESH_TOKEN_TTL_DAYS = 30;
   private readonly MAX_OTP_ATTEMPTS_PER_HOUR = 5;
 
+  /** Test phone numbers that accept a fixed OTP code (for QA/demo). */
+  private readonly TEST_PHONE_CODE = '000000';
+  private readonly testPhones: Set<string>;
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
     private redis: RedisService,
     @Optional() private whatsapp?: WhatsAppService,
-  ) {}
+  ) {
+    // Parse TEST_PHONES env var: comma-separated list of phone numbers
+    // e.g. "+5215500000001,+5215500000002,+5215512345001"
+    const raw = this.config.get<string>('TEST_PHONES') || '';
+    this.testPhones = new Set(
+      raw.split(',').map(p => p.trim()).filter(Boolean),
+    );
+    if (this.testPhones.size > 0) {
+      this.logger.log(`🧪 ${this.testPhones.size} test phone(s) configured — code: ${this.TEST_PHONE_CODE}`);
+    }
+  }
+
+  /** Check if a phone is a test number */
+  private isTestPhone(phone: string): boolean {
+    return this.testPhones.has(phone);
+  }
 
   // ─── Request OTP ────────────────────────────────────────────
 
@@ -41,8 +60,9 @@ export class AuthService {
       );
     }
 
-    // Generate 6-digit numeric code
-    const code = this.generateOtpCode();
+    // ── Test phones: fixed code, no WhatsApp ──
+    const isTest = this.isTestPhone(phone);
+    const code = isTest ? this.TEST_PHONE_CODE : this.generateOtpCode();
     const expiresAt = new Date(Date.now() + this.OTP_TTL_MINUTES * 60 * 1000);
 
     // Invalidate any previous unused codes for this phone
@@ -71,8 +91,11 @@ export class AuthService {
     await this.redis.set(rateLimitKey, newCount.toString(), 3600);
 
     // ──── Send OTP ────
-    // Try WhatsApp first, fall back to console logging in dev
-    if (this.whatsapp?.isWhatsAppEnabled()) {
+    if (isTest) {
+      // Test phones: skip WhatsApp, code is always 000000
+      this.logger.log(`🧪 Test OTP for ${phone}: ${code}`);
+    } else if (this.whatsapp?.isWhatsAppEnabled()) {
+      // Production: send via WhatsApp
       const otpMessage =
         `🔑 *Tu código de verificación Handy*\n\n` +
         `${code}\n\n` +
@@ -92,8 +115,8 @@ export class AuthService {
     return {
       message: 'OTP sent successfully',
       expiresAt,
-      // Only include code in development for easy testing
-      ...(this.config.get('NODE_ENV') !== 'production' && { code }),
+      // Include code in dev OR for test phones
+      ...((this.config.get('NODE_ENV') !== 'production' || isTest) && { code }),
     };
   }
 
