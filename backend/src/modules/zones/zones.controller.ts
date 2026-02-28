@@ -9,12 +9,16 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ZonesService } from './zones.service';
+import { GeocodingService } from './geocoding.service';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Zones')
 @Controller('api/zones')
 export class ZonesController {
-  constructor(private zonesService: ZonesService) {}
+  constructor(
+    private zonesService: ZonesService,
+    private geocoding: GeocodingService,
+  ) {}
 
   @Get()
   @Public()
@@ -66,6 +70,18 @@ export class ZonesController {
     @Body('zoneIds') zoneIds: string[],
   ) {
     return this.zonesService.updateProviderZones(providerId, zoneIds);
+  }
+
+  @Get('geocode')
+  @Public()
+  @ApiOperation({ summary: 'Geocode a city name (via Nominatim)' })
+  @ApiQuery({ name: 'q', required: true, description: 'City name to look up' })
+  async geocodeCity(@Query('q') q: string) {
+    const result = await this.geocoding.lookupCity(q);
+    if (!result) {
+      return { found: false, query: q };
+    }
+    return { found: true, ...result };
   }
 }
 
