@@ -36,8 +36,6 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastMessageTimeRef = useRef<string | null>(null);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback((smooth = true) => {
@@ -57,11 +55,6 @@ export default function ChatPage() {
       ]);
       setBooking(bookingData);
       setMessages(messagesData.data);
-      // Track the latest message time for polling
-      if (messagesData.data.length > 0) {
-        lastMessageTimeRef.current =
-          messagesData.data[messagesData.data.length - 1].createdAt;
-      }
       scrollToBottom(false);
     } catch (err: unknown) {
       console.error('Failed to load chat:', err);
@@ -87,49 +80,44 @@ export default function ChatPage() {
     }
   }, [isAuthenticated, bookingId, loadData]);
 
-  // Merge new messages from polling without duplicates
-  const mergeMessages = useCallback(
-    (newMessages: ChatMessage[]) => {
-      if (newMessages.length === 0) return;
-      setMessages((prev) => {
-        const existingIds = new Set(prev.map((m) => m.id));
-        const toAdd = newMessages.filter((m) => !existingIds.has(m.id));
-        if (toAdd.length === 0) return prev;
-        const merged = [...prev, ...toAdd].sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        );
-        // Update last message time
-        lastMessageTimeRef.current = merged[merged.length - 1].createdAt;
-        return merged;
-      });
-      scrollToBottom();
-    },
-    [scrollToBottom],
-  );
-
-  // Polling fallback — fetches new messages periodically
+  // Polling — fetches new messages every few seconds
   useEffect(() => {
     if (!isAuthenticated || !bookingId || loading) return;
 
     const poll = async () => {
       try {
-        const res = await messagesApi.getHistory(bookingId, { limit: 20 });
-        mergeMessages(res.data);
-      } catch {
-        // Silent fail — polling is best-effort
+        const res = await messagesApi.getHistory(bookingId, { limit: 50 });
+        const fetched = res.data;
+        if (!fetched || fetched.length === 0) return;
+
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newMsgs = fetched.filter((m) => !existingIds.has(m.id));
+          if (newMsgs.length === 0) return prev;
+          console.log(`[Handy Chat] ${newMsgs.length} new message(s) from poll`);
+          const merged = [...prev, ...newMsgs].sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          );
+          return merged;
+        });
+        scrollToBottom();
+      } catch (err) {
+        console.warn('[Handy Chat] Poll error:', err);
       }
     };
 
-    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
+    console.log('[Handy Chat] Polling started (every 3s)');
+    // Run first poll immediately
+    poll();
+    const interval = setInterval(poll, 3000);
 
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      clearInterval(interval);
+      console.log('[Handy Chat] Polling stopped');
     };
-  }, [isAuthenticated, bookingId, loading, mergeMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, bookingId, loading]);
 
   // WebSocket connection for real-time messages
   useEffect(() => {
@@ -157,14 +145,11 @@ export default function ChatPage() {
     });
 
     socket.on('message:new', (message: ChatMessage) => {
-      // Only add if it's for this booking
+      console.log('[Handy Chat] WS message:new received', message.id);
       if (message.bookingId === bookingId) {
         setMessages((prev) => {
-          // Deduplicate
           if (prev.some((m) => m.id === message.id)) return prev;
-          const updated = [...prev, message];
-          lastMessageTimeRef.current = message.createdAt;
-          return updated;
+          return [...prev, message];
         });
         scrollToBottom();
       }
