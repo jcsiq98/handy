@@ -43,5 +43,5 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-# Run migrations and start
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+# Run migrations and start (NestJS outputs to dist/src/main.js)
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
