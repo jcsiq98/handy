@@ -192,6 +192,45 @@ model Rating {
 }
 
 // ──────────────────────────────────────────────
+// Provider Applications (onboarding via WhatsApp)
+// ──────────────────────────────────────────────
+model ProviderApplication {
+  id                 String             @id @default(uuid())
+  phone              String             @unique
+  name               String?
+  bio                String?
+  yearsExperience    Int                @default(0) @map("years_experience")
+  categories         String[]           // slugs of service categories
+  serviceZones       String[]           @map("service_zones")    // zone/neighborhood names
+
+  // Identity verification (M3)
+  inePhotoFront      String?            @map("ine_photo_front")
+  inePhotoBack       String?            @map("ine_photo_back")
+  selfiePhoto        String?            @map("selfie_photo")
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verificationNotes  String?            @map("verification_notes")
+
+  // Onboarding step tracking
+  onboardingStep     String             @default("WELCOME") @map("onboarding_step")
+
+  // Admin review
+  reviewedBy         String?            @map("reviewed_by")
+  reviewedAt         DateTime?          @map("reviewed_at")
+
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@map("provider_applications")
+}
+
+enum VerificationStatus {
+  PENDING
+  DOCS_SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+// ──────────────────────────────────────────────
 // OTP Codes (for phone authentication)
 // ──────────────────────────────────────────────
 model OtpCode {

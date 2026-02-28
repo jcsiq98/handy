@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../config/redis.service';
 import { WhatsAppService } from './whatsapp.service';
+import { WhatsAppOnboardingHandler } from './whatsapp-onboarding.handler';
 import { BookingsGateway } from '../bookings/bookings.gateway';
 import { MessagesService } from '../messages/messages.service';
 import { RatingsService } from '../ratings/ratings.service';
@@ -46,6 +47,7 @@ export class WhatsAppProviderHandler {
     @Inject(forwardRef(() => MessagesService))
     private messagesService: MessagesService,
     private ratingsService: RatingsService,
+    private onboardingHandler: WhatsAppOnboardingHandler,
   ) {}
 
   // ─── Session management ──────────────────────────────────
@@ -171,12 +173,10 @@ export class WhatsAppProviderHandler {
     // Check if this phone belongs to a provider
     const provider = await this.findProviderByPhone(senderPhone);
     if (!provider) {
-      // Not a provider — ignore (or send a generic message)
-      this.logger.debug(`Message from non-provider ${senderPhone}, ignoring`);
-      await this.whatsapp.sendTextMessage(
-        senderPhone,
-        `👋 Hola! Esta línea es solo para proveedores de Handy.\n\nSi eres cliente, usa la app en tu navegador.`,
-      );
+      // Not a registered provider — route to onboarding flow
+      this.logger.log(`Message from non-provider ${senderPhone}, routing to onboarding`);
+      const text = this.extractText(message);
+      await this.onboardingHandler.handleMessage(senderPhone, senderName, text);
       return;
     }
 
