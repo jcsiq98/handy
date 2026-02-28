@@ -72,12 +72,12 @@ export default function LoginPage() {
               Tu número de teléfono
             </label>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full max-w-full overflow-hidden">
               {/* Country code selector */}
               <select
                 value={countryCode}
                 onChange={(e) => setCountryCode(e.target.value)}
-                className="px-3 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none cursor-pointer"
+                className="shrink-0 w-[140px] px-2 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none cursor-pointer"
               >
                 {COUNTRY_CODES.map((c) => (
                   <option key={c.code} value={c.code}>
@@ -92,7 +92,7 @@ export default function LoginPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/[^\d\s-]/g, ''))}
                 placeholder="55 1234 5678"
-                className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="flex-1 min-w-0 px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 autoFocus
                 inputMode="numeric"
                 autoComplete="tel"

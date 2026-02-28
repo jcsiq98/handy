@@ -30,6 +30,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // Allow external images (dicebear avatars)
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

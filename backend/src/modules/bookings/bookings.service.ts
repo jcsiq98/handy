@@ -272,6 +272,42 @@ export class BookingsService {
   }
 
   /**
+   * Dismiss (soft-delete) a cancelled or rejected booking from the customer's history.
+   */
+  async dismiss(bookingId: string, userId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    if (booking.customerId !== userId) {
+      throw new ForbiddenException('Only the customer can dismiss a booking');
+    }
+
+    const dismissableStatuses: BookingStatus[] = [
+      BookingStatus.CANCELLED,
+      BookingStatus.REJECTED,
+      BookingStatus.COMPLETED,
+      BookingStatus.RATED,
+    ];
+
+    if (!dismissableStatuses.includes(booking.status)) {
+      throw new BadRequestException(
+        'Solo puedes eliminar solicitudes canceladas, rechazadas o completadas.',
+      );
+    }
+
+    await this.prisma.booking.delete({
+      where: { id: bookingId },
+    });
+
+    return { success: true, message: 'Solicitud eliminada' };
+  }
+
+  /**
    * Update booking status (used internally and by WebSocket gateway).
    */
   async updateStatus(bookingId: string, status: BookingStatus) {

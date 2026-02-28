@@ -21,6 +21,7 @@
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx prisma db seed",
     "db:seed:demo": "npx ts-node prisma/seed-demo.ts",
+    "register-provider": "npx ts-node scripts/register-provider.ts",
     "db:reset": "npx prisma migrate reset --force",
     "db:studio": "npx prisma studio"
   },

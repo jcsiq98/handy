@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { bookingsApi, type BookingSummary, type BookingStatus } from '../../lib/api';
 import EmptyState from '../../components/ui/empty-state';
@@ -24,14 +24,17 @@ const STATUS_BADGE: Record<
   REJECTED: { label: 'Rechazado', color: 'bg-red-50 text-red-700', icon: '🚫' },
 };
 
-export default function BookingsHistoryPage() {
+function BookingsHistoryContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoading: authLoading, isAuthenticated } = useAuth();
+
+  const initialTab = (searchParams.get('status') as FilterTab) || 'all';
 
   const [bookings, setBookings] = useState<BookingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [activeTab, setActiveTab] = useState<FilterTab>(initialTab);
   const [total, setTotal] = useState(0);
 
   const loadBookings = useCallback(
@@ -147,63 +150,101 @@ export default function BookingsHistoryPage() {
             {bookings.map((booking) => {
               const badge = STATUS_BADGE[booking.status];
               const createdDate = new Date(booking.createdAt);
+              const isDismissable = ['CANCELLED', 'REJECTED', 'COMPLETED', 'RATED'].includes(booking.status);
 
               return (
-                <button
-                  key={booking.id}
-                  onClick={() => router.push(`/bookings/${booking.id}`)}
-                  className="w-full bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all text-left active:scale-[0.98]"
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    {/* Provider avatar */}
-                    {booking.provider?.avatarUrl ? (
-                      <img
-                        src={booking.provider.avatarUrl}
-                        alt=""
-                        className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold shrink-0">
-                        {(booking.provider?.name || '?')[0]}
-                      </div>
-                    )}
+                <div key={booking.id} className="relative">
+                  <button
+                    onClick={() => router.push(`/bookings/${booking.id}`)}
+                    className="w-full bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all text-left active:scale-[0.98]"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* Provider avatar */}
+                      {booking.provider?.avatarUrl ? (
+                        <img
+                          src={booking.provider.avatarUrl}
+                          alt=""
+                          className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold shrink-0">
+                          {(booking.provider?.name || '?')[0]}
+                        </div>
+                      )}
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-gray-800 text-sm truncate">
-                          {booking.provider?.name || 'Proveedor'}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-gray-800 text-sm truncate">
+                            {booking.provider?.name || 'Proveedor'}
+                          </p>
+                          <span
+                            className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${badge.color}`}
+                          >
+                            {badge.icon} {badge.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {booking.category?.icon} {booking.category?.name}
                         </p>
-                        <span
-                          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${badge.color}`}
-                        >
-                          {badge.icon} {badge.label}
-                        </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {booking.category?.icon} {booking.category?.name}
-                      </p>
                     </div>
-                  </div>
 
-                  <p className="text-xs text-gray-600 line-clamp-2 mb-2">
-                    {booking.description}
-                  </p>
+                    <p className="text-xs text-gray-600 line-clamp-2 mb-2">
+                      {booking.description}
+                    </p>
 
-                  <div className="flex items-center justify-between text-[10px] text-gray-400">
-                    <span>
-                      {createdDate.toLocaleDateString('es-MX', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </span>
-                    {booking.address && (
-                      <span className="truncate max-w-[50%]">
-                        📍 {booking.address}
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span>
+                        {createdDate.toLocaleDateString('es-MX', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
                       </span>
+                      {booking.address && (
+                        <span className="truncate max-w-[50%]">
+                          📍 {booking.address}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick chat button for active bookings */}
+                    {['ACCEPTED', 'PROVIDER_ARRIVING', 'IN_PROGRESS'].includes(booking.status) && (
+                      <div
+                        className="mt-3 pt-3 border-t border-gray-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/chat/${booking.id}`);
+                        }}
+                      >
+                        <div className="w-full py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-semibold text-center hover:bg-indigo-100 transition-colors">
+                          💬 Chatear con {booking.provider?.name || 'proveedor'}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </button>
+                  </button>
+
+                  {/* Dismiss button for cancelled/rejected/completed bookings */}
+                  {isDismissable && (
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm('¿Eliminar esta solicitud de tu historial?')) return;
+                        try {
+                          await bookingsApi.dismiss(booking.id);
+                          setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+                          setTotal((prev) => prev - 1);
+                        } catch {
+                          alert('No se pudo eliminar la solicitud');
+                        }
+                      }}
+                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray-100 hover:bg-red-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors text-xs"
+                      title="Eliminar"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -217,8 +258,8 @@ export default function BookingsHistoryPage() {
             { icon: '🏠', label: 'Inicio', href: '/', active: false },
             { icon: '🔍', label: 'Buscar', href: '/providers', active: false },
             { icon: '📋', label: 'Mis Pedidos', href: '/bookings', active: true },
-            { icon: '💬', label: 'Chat', href: '#', active: false },
-            { icon: '👤', label: 'Perfil', href: '#', active: false },
+            { icon: '💬', label: 'Chat', href: '/bookings?status=active', active: false },
+            { icon: '👤', label: 'Perfil', href: '/profile', active: false },
           ].map((item) => (
             <button
               key={item.label}
@@ -239,4 +280,10 @@ export default function BookingsHistoryPage() {
   );
 }
 
-
+export default function BookingsHistoryPage() {
+  return (
+    <Suspense fallback={<CardListSkeleton />}>
+      <BookingsHistoryContent />
+    </Suspense>
+  );
+}

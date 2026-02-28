@@ -140,10 +140,11 @@ export class WhatsAppProviderHandler {
       `👤 Cliente: ${customerName} (${customerRating})\n\n` +
       `⏱ Responde en los próximos 10 minutos`;
 
-    await this.whatsapp.sendInteractiveButtons(providerPhone, msg, [
-      { id: `accept_${bookingId}`, title: '✅ Aceptar' },
-      { id: `reject_${bookingId}`, title: '❌ Rechazar' },
-    ]);
+    // Send as plain text (interactive buttons fail in WhatsApp test/sandbox mode)
+    await this.whatsapp.sendTextMessage(
+      providerPhone,
+      msg + `\n\n✅ Responde *aceptar* para tomar el trabajo\n❌ Responde *rechazar* para pasar`,
+    );
 
     // Set provider session to REQUEST_RECEIVED
     await this.setSession(providerPhone, {
@@ -295,15 +296,48 @@ export class WhatsAppProviderHandler {
         },
         orderBy: { createdAt: 'desc' },
         include: {
-          customer: { select: { name: true } },
+          customer: { select: { id: true, name: true, ratingAverage: true } },
           category: true,
         },
       });
 
       if (pendingBooking) {
+        const customerName = pendingBooking.customer?.name || 'Cliente';
+        const customerRating = pendingBooking.customer?.ratingAverage
+          ? `⭐ ${pendingBooking.customer.ratingAverage.toFixed(1)}`
+          : 'Sin calificación';
+        const categoryIcon = pendingBooking.category?.icon || '🛠';
+        const categoryName = pendingBooking.category?.name || 'Servicio';
+
+        // Update session to REQUEST_RECEIVED with booking info
+        const updatedSession: ProviderSession = {
+          ...session,
+          state: ProviderState.REQUEST_RECEIVED,
+          bookingId: pendingBooking.id,
+          customerName,
+          customerId: pendingBooking.customer?.id,
+        };
+        await this.setSession(phone, updatedSession);
+
+        // If user already typed "aceptar"/"rechazar", process immediately
+        if (text === 'aceptar' || text === 'accept' || text === 'si' || text === 'sí') {
+          return this.acceptBooking(phone, updatedSession);
+        }
+        if (text === 'rechazar' || text === 'reject' || text === 'no') {
+          return this.rejectBooking(phone, updatedSession);
+        }
+
+        // Otherwise show booking details and instructions
         await this.whatsapp.sendTextMessage(
           phone,
-          `📋 Tienes una solicitud pendiente de ${pendingBooking.customer?.name || 'un cliente'}. Revisa tu WhatsApp para aceptar o rechazar.`,
+          `🔔 *¡Tienes un trabajo pendiente!*\n\n` +
+            `${categoryIcon} Servicio: ${categoryName}\n` +
+            `📝 "${pendingBooking.description}"\n` +
+            `📍 ${pendingBooking.address || 'Sin dirección'}\n` +
+            `📅 ${pendingBooking.scheduledAt ? new Date(pendingBooking.scheduledAt).toLocaleDateString('es-MX') : 'Lo antes posible'}\n` +
+            `👤 Cliente: ${customerName} (${customerRating})\n\n` +
+            `✅ Escribe *"aceptar"* para tomar el trabajo\n` +
+            `❌ Escribe *"rechazar"* para pasar`,
         );
         return;
       }
@@ -421,10 +455,10 @@ export class WhatsAppProviderHandler {
           `Cuando estés en camino, escribe *"en camino"*`,
       );
 
-      await this.whatsapp.sendInteractiveButtons(phone, '¿Qué deseas hacer?', [
-        { id: 'btn_on_my_way', title: '📍 Estoy en camino' },
-        { id: 'btn_chat', title: '💬 Chat con cliente' },
-      ]);
+      await this.whatsapp.sendTextMessage(
+        phone,
+        `¿Qué deseas hacer?\n\n📍 Escribe *"en camino"* cuando vayas para allá\n💬 Escribe cualquier mensaje para chatear con el cliente`,
+      );
 
       // Update session
       await this.setSession(phone, {
@@ -708,15 +742,10 @@ export class WhatsAppProviderHandler {
         `✅ *¡Trabajo completado!* 🎉\n\nEl cliente ha sido notificado y podrá calificarte.\n\n¡Ahora te toca a ti! ¿Cómo fue tu experiencia con ${session.customerName || 'el cliente'}?`,
       );
 
-      // Send rating buttons
-      await this.whatsapp.sendInteractiveButtons(
+      // Send rating as text
+      await this.whatsapp.sendTextMessage(
         phone,
-        `⭐ ¿Cómo calificarías a ${session.customerName || 'el cliente'}?`,
-        [
-          { id: `rate_low_${bookingId}`, title: '⭐ 1-2 Mal' },
-          { id: `rate_mid_${bookingId}`, title: '⭐⭐⭐ 3 OK' },
-          { id: `rate_high_${bookingId}`, title: '⭐⭐⭐⭐⭐ 4-5 Bien' },
-        ],
+        `⭐ ¿Cómo calificarías a ${session.customerName || 'el cliente'}?\n\nResponde con un número del *1* al *5*\nO escribe *"skip"* para omitir`,
       );
 
       // Transition to AWAITING_RATING
@@ -769,14 +798,9 @@ export class WhatsAppProviderHandler {
     }
 
     // Remind them about the rating options
-    await this.whatsapp.sendInteractiveButtons(
+    await this.whatsapp.sendTextMessage(
       phone,
-      `⭐ ¿Cómo calificarías a ${session.customerName || 'el cliente'}?\n\nTambién puedes escribir un número del 1 al 5, o *"skip"* para omitir.`,
-      [
-        { id: `rate_low_${bookingId}`, title: '⭐ 1-2 Mal' },
-        { id: `rate_mid_${bookingId}`, title: '⭐⭐⭐ 3 OK' },
-        { id: `rate_high_${bookingId}`, title: '⭐⭐⭐⭐⭐ 4-5 Bien' },
-      ],
+      `⭐ ¿Cómo calificarías a ${session.customerName || 'el cliente'}?\n\nResponde con un número del *1* al *5*\nO escribe *"skip"* para omitir`,
     );
   }
 

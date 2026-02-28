@@ -108,6 +108,12 @@ export default function BookingFlowPage() {
       await new Promise((r) => setTimeout(r, 1500));
       setStep('done');
     } catch (err: unknown) {
+      console.error('Booking creation error:', err);
+      // If unauthorized, redirect to login
+      if (err && typeof err === 'object' && 'status' in err && (err as any).status === 401) {
+        router.replace('/login');
+        return;
+      }
       const message = err instanceof Error ? err.message : 'Error al crear la solicitud';
       setError(message);
       setStep('confirm');

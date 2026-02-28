@@ -43,6 +43,13 @@ export default function HomePage() {
       setFeaturedProviders(provRes.data);
     } catch (err: unknown) {
       console.error('Failed to load home data:', err);
+      // If unauthorized, clear tokens and redirect
+      if (err && typeof err === 'object' && 'status' in err && (err as any).status === 401) {
+        localStorage.removeItem('handy_access_token');
+        localStorage.removeItem('handy_refresh_token');
+        window.location.href = '/login';
+        return;
+      }
       setError('No se pudieron cargar los datos');
     } finally {
       setLoadingData(false);
@@ -249,8 +256,8 @@ export default function HomePage() {
             { icon: '🏠', label: 'Inicio', href: '/', active: true },
             { icon: '🔍', label: 'Buscar', href: '/providers', active: false },
             { icon: '📋', label: 'Mis Pedidos', href: '/bookings', active: false },
-            { icon: '💬', label: 'Chat', href: '#', active: false },
-            { icon: '👤', label: 'Perfil', href: '#', active: false },
+            { icon: '💬', label: 'Chat', href: '/bookings?status=active', active: false },
+            { icon: '👤', label: 'Perfil', href: '/profile', active: false },
           ].map((item) => (
             <button
               key={item.label}

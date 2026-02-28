@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth-context";
-import PWAInstallPrompt from "../components/pwa-install-prompt";
+
 
 const inter = Inter({
   subsets: ["latin"],
@@ -51,7 +51,7 @@ export default function RootLayout({
         <div className="mx-auto max-w-[480px] min-h-screen bg-white shadow-sm">
           <AuthProvider>
             {children}
-            <PWAInstallPrompt />
+
           </AuthProvider>
         </div>
       </body>

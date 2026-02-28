@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -80,6 +81,15 @@ export class BookingsController {
     @Body() dto: CancelBookingDto,
   ) {
     return this.bookingsService.cancel(id, user.id, dto.reason);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Dismiss/delete a cancelled or rejected booking from history' })
+  async dismiss(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+  ) {
+    return this.bookingsService.dismiss(id, user.id);
   }
 }
 

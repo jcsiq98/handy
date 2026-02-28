@@ -1,19 +1,25 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
   // Security headers
   app.use(helmet());
 
   // CORS — allow frontend
+  const isProd = process.env.NODE_ENV === 'production';
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production'
-      ? [process.env.FRONTEND_URL || 'https://app.handy.com']
+    origin: isProd
+      ? [
+          process.env.FRONTEND_URL,
+          // Allow Vercel preview deployments
+          /https:\/\/.*\.vercel\.app$/,
+        ].filter(Boolean)
       : ['http://localhost:3001', 'http://localhost:3000'],
     credentials: true,
   });
@@ -28,7 +34,7 @@ async function bootstrap() {
   );
 
   // Swagger API docs (dev only)
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProd) {
     const config = new DocumentBuilder()
       .setTitle('Handy API')
       .setDescription('API for the Handy service marketplace')
@@ -40,11 +46,20 @@ async function bootstrap() {
   }
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
+  // Bind to 0.0.0.0 for Railway/Docker compatibility
+  await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀 Handy API running on http://localhost:${port}`);
-  console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
-  console.log(`💚 Health check: http://localhost:${port}/api/health`);
+  logger.log('');
+  logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  logger.log(`🚀 Handy API running on port ${port}`);
+  if (!isProd) {
+    logger.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
+  }
+  logger.log(`💚 Health check: /api/health`);
+  logger.log(`📱 WA health:    /api/health/whatsapp`);
+  logger.log(`🌍 Environment:  ${isProd ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+  logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  logger.log('');
 }
 
 bootstrap();

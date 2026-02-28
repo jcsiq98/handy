@@ -3,6 +3,7 @@ import { WhatsAppService } from './whatsapp.service';
 import { WhatsAppController } from './whatsapp.controller';
 import { WhatsAppProviderHandler } from './whatsapp-provider.handler';
 import { WhatsAppBookingListener } from './whatsapp-booking.listener';
+import { WhatsAppNotificationQueueService } from './whatsapp-notification-queue.service';
 import { BookingsModule } from '../bookings/bookings.module';
 import { MessagesModule } from '../messages/messages.module';
 import { RatingsModule } from '../ratings/ratings.module';
@@ -24,6 +25,7 @@ import { RatingsModule } from '../ratings/ratings.module';
     WhatsAppService,
     WhatsAppProviderHandler,
     WhatsAppBookingListener,
+    WhatsAppNotificationQueueService,
   ],
   exports: [WhatsAppService, WhatsAppProviderHandler],
 })

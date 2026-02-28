@@ -98,6 +98,14 @@ export async function api<T = unknown>(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    // If still 401 after refresh attempt, clear tokens and redirect to login
+    if (res.status === 401 && !skipAuth) {
+      clearTokens();
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+        return undefined as any;
+      }
+    }
     throw new ApiError(res.status, errorData.message || 'Request failed', errorData);
   }
 
@@ -355,6 +363,11 @@ export const bookingsApi = {
     api<BookingSummary>(`/bookings/${id}/cancel`, {
       method: 'PATCH',
       body: JSON.stringify({ reason }),
+    }),
+
+  dismiss: (id: string) =>
+    api<{ success: boolean; message: string }>(`/bookings/${id}`, {
+      method: 'DELETE',
     }),
 };
 

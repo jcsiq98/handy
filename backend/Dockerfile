@@ -23,6 +23,9 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Install OpenSSL for Prisma + SSL connections to Neon
+RUN apk add --no-cache openssl
+
 # Install only production dependencies
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -42,4 +45,3 @@ EXPOSE 3000
 
 # Run migrations and start
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
-
