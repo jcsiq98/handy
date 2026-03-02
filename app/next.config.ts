@@ -2,18 +2,17 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 
-const nextConfig: NextConfig = {
-  // API proxy to avoid CORS in development
-  async rewrites() {
-    if (isProd) {
-      // In production, the API base URL is set via NEXT_PUBLIC_API_URL
-      return [];
-    }
+const API_BACKEND = isProd
+  ? "https://handy-production-8390.up.railway.app"
+  : "http://localhost:3000";
 
+const nextConfig: NextConfig = {
+  // API proxy — routes /api/* to backend (local in dev, Railway in prod)
+  async rewrites() {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:3000/api/:path*",
+        destination: `${API_BACKEND}/api/:path*`,
       },
     ];
   },
