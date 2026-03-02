@@ -4,6 +4,7 @@ import { RedisService } from '../../config/redis.service';
 import { WhatsAppService } from './whatsapp.service';
 import { ZonesService } from '../zones/zones.service';
 import { GeocodingService } from '../zones/geocoding.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 
 // ─── Onboarding steps ─────────────────────────────────────
 
@@ -57,6 +58,7 @@ export class WhatsAppOnboardingHandler {
     private redis: RedisService,
     private zonesService: ZonesService,
     private geocoding: GeocodingService,
+    private onboardingService: OnboardingService,
   ) {}
 
   // ─── Session management ──────────────────────────────────
@@ -463,7 +465,7 @@ export class WhatsAppOnboardingHandler {
     try {
       const dbPhone = this.normalizePhoneForDb(phone);
 
-      // 1. Save / update the ProviderApplication
+      // 1. Save / update the ProviderApplication (status: PENDING, waiting for verification)
       const application = await this.prisma.providerApplication.upsert({
         where: { phone: dbPhone },
         update: {
@@ -473,7 +475,7 @@ export class WhatsAppOnboardingHandler {
           categories: session.categories || [],
           serviceZones: session.serviceZones || [],
           onboardingStep: OnboardingStep.REVIEW,
-          verificationStatus: 'APPROVED',
+          verificationStatus: 'PENDING', // Changed: now requires verification
         },
         create: {
           phone: dbPhone,
@@ -483,88 +485,22 @@ export class WhatsAppOnboardingHandler {
           categories: session.categories || [],
           serviceZones: session.serviceZones || [],
           onboardingStep: OnboardingStep.REVIEW,
-          verificationStatus: 'APPROVED',
+          verificationStatus: 'PENDING', // Changed: now requires verification
         },
       });
 
       session.applicationId = application.id;
 
-      // 2. Create User (or update if exists) with role PROVIDER
-      let user = await this.prisma.user.findUnique({
-        where: { phone: dbPhone },
-      });
+      // 2. Generate verification token and URL
+      const verificationToken =
+        await this.onboardingService.generateVerificationToken(application.id);
+      const verificationUrl =
+        this.onboardingService.getVerificationUrl(verificationToken);
 
-      if (user) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            name: session.name || user.name,
-            role: 'PROVIDER',
-          },
-        });
-        this.logger.log(
-          `Upgraded existing user ${user.id} to PROVIDER role`,
-        );
-      } else {
-        user = await this.prisma.user.create({
-          data: {
-            phone: dbPhone,
-            name: session.name || null,
-            role: 'PROVIDER',
-          },
-        });
-        this.logger.log(
-          `Created new PROVIDER user: ${user.id} (${dbPhone})`,
-        );
-      }
-
-      // 3. Create ProviderProfile (or update if exists)
-      let profile = await this.prisma.providerProfile.findUnique({
-        where: { userId: user.id },
-      });
-
-      if (profile) {
-        profile = await this.prisma.providerProfile.update({
-          where: { id: profile.id },
-          data: {
-            bio: session.bio || profile.bio,
-            serviceTypes: session.categories || [],
-            isAvailable: true,
-          },
-        });
-      } else {
-        profile = await this.prisma.providerProfile.create({
-          data: {
-            userId: user.id,
-            bio: session.bio || null,
-            serviceTypes: session.categories || [],
-            isAvailable: true,
-          },
-        });
-      }
-
-      // 4. Link service zones to the provider profile
-      const zoneIds = session.serviceZoneIds || [];
-      if (zoneIds.length > 0) {
-        await this.prisma.providerServiceZone.deleteMany({
-          where: { providerId: profile.id },
-        });
-        await Promise.all(
-          zoneIds.map((zoneId) =>
-            this.prisma.providerServiceZone.create({
-              data: { providerId: profile!.id, zoneId },
-            }),
-          ),
-        );
-        this.logger.log(
-          `Linked ${zoneIds.length} zones to provider ${profile.id}`,
-        );
-      }
-
-      // 5. Clear onboarding session
+      // 3. Clear onboarding session
       await this.clearSession(phone);
 
-      // 6. Send success summary
+      // 4. Send summary with verification link
       const categorySlugs = session.categories || [];
       const categoryNames = categorySlugs
         .map((slug) => {
@@ -575,7 +511,7 @@ export class WhatsAppOnboardingHandler {
 
       await this.whatsapp.sendTextMessage(
         phone,
-        `📋 *Resumen de tu registro:*\n\n` +
+        `📋 *Resumen de tu solicitud:*\n\n` +
           `👤 Nombre: ${session.name}\n` +
           `🔧 Servicios: ${categoryNames}\n` +
           `📅 Experiencia: ${session.yearsExperience || 0} años\n` +
@@ -583,17 +519,16 @@ export class WhatsAppOnboardingHandler {
           `📍 Zonas: ${(session.serviceZones || []).join(', ')}\n` +
           `📝 Bio: ${session.bio || '(sin descripción)'}\n\n` +
           `─────────────────────\n\n` +
-          `🎉 *¡Tu cuenta ha sido activada!*\n\n` +
-          `Ya estás registrado como proveedor en Handy. ` +
-          `A partir de ahora recibirás notificaciones de nuevos trabajos directamente aquí en WhatsApp.\n\n` +
-          `📋 Comandos disponibles:\n` +
-          `• *"menu"* — Ver tu panel\n` +
-          `• *"ayuda"* — Ver opciones\n\n` +
-          `¡Bienvenido a Handy! 🙌`,
+          `🔐 *Último paso: Verificación de identidad*\n\n` +
+          `Para completar tu registro, necesitamos verificar tu identidad con tu INE y una selfie.\n\n` +
+          `👉 Haz clic en este enlace para continuar:\n${verificationUrl}\n\n` +
+          `⏰ El enlace expira en 1 hora.\n\n` +
+          `Una vez que subas tus documentos, revisaremos tu solicitud y te notificaremos cuando sea aprobada (24-48 horas).\n\n` +
+          `¡Gracias por unirte a Handy! 🙌`,
       );
 
       this.logger.log(
-        `✅ Provider auto-approved: ${session.name} (${dbPhone}) in ${session.city}, ${session.state} — profile ${profile.id}`,
+        `✅ Onboarding completed for ${session.name} (${dbPhone}) — verification link sent`,
       );
     } catch (error: any) {
       this.logger.error(

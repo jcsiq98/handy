@@ -15,6 +15,7 @@ import { MessagesModule } from './modules/messages/messages.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
 import { ZonesModule } from './modules/zones/zones.module';
 import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -53,6 +54,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     MessagesModule,
     RatingsModule,
     ZonesModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [

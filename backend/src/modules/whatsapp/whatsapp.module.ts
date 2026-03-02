@@ -9,6 +9,7 @@ import { BookingsModule } from '../bookings/bookings.module';
 import { MessagesModule } from '../messages/messages.module';
 import { RatingsModule } from '../ratings/ratings.module';
 import { ZonesModule } from '../zones/zones.module';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 
 /**
  * WhatsApp integration module.
@@ -22,6 +23,7 @@ import { ZonesModule } from '../zones/zones.module';
     forwardRef(() => MessagesModule), // To save bridged messages
     RatingsModule, // For WA rating flow
     ZonesModule, // For onboarding zone matching
+    OnboardingModule, // For verification token generation
   ],
   controllers: [WhatsAppController],
   providers: [
