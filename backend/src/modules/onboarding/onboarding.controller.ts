@@ -30,7 +30,7 @@ const multerOptions = {
   },
 };
 
-@Controller('onboarding')
+@Controller('api/onboarding')
 @Public() // All endpoints are public (no auth required)
 export class OnboardingController {
   constructor(private onboardingService: OnboardingService) {}
