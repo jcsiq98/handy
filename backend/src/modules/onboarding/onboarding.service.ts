@@ -99,6 +99,7 @@ export class OnboardingService {
 
   /**
    * Upload verification photos (INE front, back, selfie)
+   * For MVP: auto-approves and creates User + ProviderProfile after upload.
    */
   async uploadVerificationPhotos(
     applicationId: string,
@@ -138,20 +139,23 @@ export class OnboardingService {
         ),
       ]);
 
-      // Update application with photo URLs
+      // Update application with photo URLs and AUTO-APPROVE (MVP)
       await this.prisma.providerApplication.update({
         where: { id: applicationId },
         data: {
           inePhotoFront: ineFrontUrl,
           inePhotoBack: ineBackUrl,
           selfiePhoto: selfieUrl,
-          verificationStatus: 'DOCS_SUBMITTED',
+          verificationStatus: 'APPROVED', // MVP: auto-approve
         },
       });
 
       this.logger.log(
         `Verification photos uploaded for application ${applicationId}`,
       );
+
+      // MVP: Auto-create User + ProviderProfile
+      await this.autoApproveProvider(application);
     } catch (error: any) {
       this.logger.error(
         `Failed to upload verification photos: ${error.message}`,
@@ -160,6 +164,84 @@ export class OnboardingService {
       throw new BadRequestException(
         `Failed to upload photos: ${error.message}`,
       );
+    }
+  }
+
+  /**
+   * MVP: Auto-approve a provider application — creates User + ProviderProfile.
+   * In the future, this will be triggered by admin review instead.
+   */
+  private async autoApproveProvider(
+    application: {
+      id: string;
+      phone: string;
+      name: string | null;
+      bio: string | null;
+      categories: string[];
+      serviceZones: string[];
+      yearsExperience: number | null;
+    },
+  ): Promise<void> {
+    try {
+      // Check if user already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { phone: application.phone },
+      });
+
+      if (existingUser) {
+        this.logger.log(
+          `User already exists for ${application.phone}, skipping creation`,
+        );
+        return;
+      }
+
+      // Create User + ProviderProfile in a transaction
+      const user = await this.prisma.user.create({
+        data: {
+          phone: application.phone,
+          name: application.name,
+          role: 'PROVIDER',
+          providerProfile: {
+            create: {
+              bio: application.bio,
+              serviceTypes: application.categories || [],
+              isVerified: true,
+              isAvailable: true,
+            },
+          },
+        },
+        include: { providerProfile: true },
+      });
+
+      // Link service zones if available
+      if (user.providerProfile && application.serviceZones?.length > 0) {
+        // Find existing zones that match
+        const zones = await this.prisma.serviceZone.findMany({
+          where: {
+            name: { in: application.serviceZones },
+          },
+        });
+
+        if (zones.length > 0) {
+          await this.prisma.providerServiceZone.createMany({
+            data: zones.map((zone) => ({
+              providerId: user.providerProfile!.id,
+              zoneId: zone.id,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      this.logger.log(
+        `✅ Auto-approved provider: ${application.name} (${application.phone}) — User + Profile created`,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to auto-approve provider ${application.phone}: ${error.message}`,
+        error.stack,
+      );
+      // Don't throw — photos are already uploaded, approval can be retried
     }
   }
 

@@ -105,7 +105,14 @@ export class WhatsAppOnboardingHandler {
       if (existing.verificationStatus === 'APPROVED') {
         await this.whatsapp.sendTextMessage(
           senderPhone,
-          `✅ ¡Tu solicitud ya fue aprobada! Deberías estar recibiendo trabajos pronto.\n\nSi tienes problemas, escribe *"ayuda"*.`,
+          `✅ ¡Tu cuenta está *activa*! Ya puedes recibir solicitudes de servicio a través de la app.\n\n📱 Descarga la app o ingresa en: ${process.env.FRONTEND_URL || 'https://handy-nine.vercel.app'}\n\nSi tienes problemas, escribe *"ayuda"*.`,
+        );
+        return;
+      }
+      if (existing.verificationStatus === 'DOCS_SUBMITTED') {
+        await this.whatsapp.sendTextMessage(
+          senderPhone,
+          `📄 Ya recibimos tus documentos. Tu solicitud está *en revisión*.\n\nTe notificaremos cuando sea aprobada (24-48 horas).\n\n¡Gracias por tu paciencia!`,
         );
         return;
       }
@@ -113,10 +120,24 @@ export class WhatsAppOnboardingHandler {
         existing.verificationStatus === 'PENDING' &&
         existing.onboardingStep === 'REVIEW'
       ) {
-        await this.whatsapp.sendTextMessage(
-          senderPhone,
-          `⏳ Tu solicitud está *en revisión*.\n\nTe notificaremos cuando sea aprobada (24-48 horas).\n\n¡Gracias por tu paciencia!`,
-        );
+        // Pending verification — resend link
+        try {
+          const verificationToken =
+            await this.onboardingService.generateVerificationToken(existing.id);
+          const verificationUrl =
+            this.onboardingService.getVerificationUrl(verificationToken);
+          await this.whatsapp.sendTextMessage(
+            senderPhone,
+            `⏳ Tu registro está casi completo. Solo falta la *verificación de identidad*.\n\n` +
+              `👉 Haz clic aquí para verificarte:\n${verificationUrl}\n\n` +
+              `⏰ El enlace expira en 1 hora.`,
+          );
+        } catch {
+          await this.whatsapp.sendTextMessage(
+            senderPhone,
+            `⏳ Tu solicitud está pendiente de verificación.\n\nTe notificaremos cuando sea aprobada (24-48 horas).`,
+          );
+        }
         return;
       }
       if (existing.verificationStatus === 'REJECTED') {
