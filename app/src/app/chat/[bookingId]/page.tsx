@@ -31,19 +31,11 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
-  const [lastPoll, setLastPoll] = useState<string>('');
-  const [pollCount, setPollCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messagesRef = useRef<ChatMessage[]>([]);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback((smooth = true) => {
@@ -100,11 +92,7 @@ export default function ChatPage() {
         const res = await messagesApi.getHistory(bookingId, { limit: 50 });
         if (!active) return;
         const fetched = res.data;
-        if (!fetched || fetched.length === 0) {
-          setLastPoll(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-          setPollCount((c) => c + 1);
-          return;
-        }
+        if (!fetched || fetched.length === 0) return;
 
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
@@ -128,8 +116,6 @@ export default function ChatPage() {
           }
           return prev;
         });
-        setLastPoll(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-        setPollCount((c) => c + 1);
       } catch (err) {
         console.warn('[Handy Chat] Poll error:', err);
       }
@@ -338,7 +324,7 @@ export default function ChatPage() {
             <p className="text-[10px] text-indigo-200 truncate flex items-center gap-1">
               {booking?.category?.icon} {booking?.category?.name || 'Servicio'}{' '}
               · #{bookingId.slice(0, 6)}
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400' : pollCount > 0 ? 'bg-blue-400 animate-pulse' : 'bg-yellow-400 animate-pulse'}`} title={wsConnected ? 'WebSocket conectado' : `Polling activo (${pollCount}) ${lastPoll}`} />
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`} title={wsConnected ? 'En vivo' : 'Actualizando...'} />
             </p>
           </div>
         </div>
@@ -352,13 +338,6 @@ export default function ChatPage() {
           </div>
         )}
       </header>
-
-      {/* Debug bar — remove after confirming polling works */}
-      <div className="bg-gray-900 text-[10px] text-gray-400 px-3 py-1 flex justify-between">
-        <span>🔄 Poll #{pollCount} {lastPoll && `@ ${lastPoll}`}</span>
-        <span>💬 {messages.length} msgs</span>
-        <span>{wsConnected ? '🟢 WS' : '🟡 Poll'}</span>
-      </div>
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
