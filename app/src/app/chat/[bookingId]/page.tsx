@@ -31,19 +31,27 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [lastPoll, setLastPoll] = useState<string>('');
+  const [pollCount, setPollCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback((smooth = true) => {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({
         behavior: smooth ? 'smooth' : 'instant',
       });
-    }, 100);
+    });
   }, []);
 
   // Load booking info + message history
@@ -80,39 +88,60 @@ export default function ChatPage() {
     }
   }, [isAuthenticated, bookingId, loadData]);
 
-  // Polling — fetches new messages every few seconds
+  // Polling — fetches new messages every 2 seconds (primary real-time mechanism)
   useEffect(() => {
     if (!isAuthenticated || !bookingId || loading) return;
 
+    let active = true;
+
     const poll = async () => {
+      if (!active) return;
       try {
         const res = await messagesApi.getHistory(bookingId, { limit: 50 });
+        if (!active) return;
         const fetched = res.data;
-        if (!fetched || fetched.length === 0) return;
+        if (!fetched || fetched.length === 0) {
+          setLastPoll(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          setPollCount((c) => c + 1);
+          return;
+        }
 
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const newMsgs = fetched.filter((m) => !existingIds.has(m.id));
-          if (newMsgs.length === 0) return prev;
-          console.log(`[Handy Chat] ${newMsgs.length} new message(s) from poll`);
-          const merged = [...prev, ...newMsgs].sort(
-            (a, b) =>
-              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          );
-          return merged;
+          if (newMsgs.length > 0) {
+            console.log(`[Handy Chat] ${newMsgs.length} new message(s) from poll`);
+            const merged = [...prev, ...newMsgs].sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            );
+            // Scroll after React renders the new messages
+            setTimeout(() => scrollToBottom(), 50);
+            return merged;
+          }
+          // If fetched count differs from current (e.g. messages were deleted), sync
+          if (fetched.length !== prev.length) {
+            return fetched.sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            );
+          }
+          return prev;
         });
-        scrollToBottom();
+        setLastPoll(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        setPollCount((c) => c + 1);
       } catch (err) {
         console.warn('[Handy Chat] Poll error:', err);
       }
     };
 
-    console.log('[Handy Chat] Polling started (every 3s)');
-    // Run first poll immediately
+    console.log('[Handy Chat] Polling started (every 2s)');
+    // First poll immediately
     poll();
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 2000);
 
     return () => {
+      active = false;
       clearInterval(interval);
       console.log('[Handy Chat] Polling stopped');
     };
@@ -309,7 +338,7 @@ export default function ChatPage() {
             <p className="text-[10px] text-indigo-200 truncate flex items-center gap-1">
               {booking?.category?.icon} {booking?.category?.name || 'Servicio'}{' '}
               · #{bookingId.slice(0, 6)}
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`} title={wsConnected ? 'En vivo' : 'Actualizando...'} />
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400' : pollCount > 0 ? 'bg-blue-400 animate-pulse' : 'bg-yellow-400 animate-pulse'}`} title={wsConnected ? 'WebSocket conectado' : `Polling activo (${pollCount}) ${lastPoll}`} />
             </p>
           </div>
         </div>
@@ -323,6 +352,13 @@ export default function ChatPage() {
           </div>
         )}
       </header>
+
+      {/* Debug bar — remove after confirming polling works */}
+      <div className="bg-gray-900 text-[10px] text-gray-400 px-3 py-1 flex justify-between">
+        <span>🔄 Poll #{pollCount} {lastPoll && `@ ${lastPoll}`}</span>
+        <span>💬 {messages.length} msgs</span>
+        <span>{wsConnected ? '🟢 WS' : '🟡 Poll'}</span>
+      </div>
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
