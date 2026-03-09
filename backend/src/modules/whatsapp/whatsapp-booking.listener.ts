@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { PrismaService } from '../../prisma/prisma.service';
 import { WhatsAppProviderHandler } from './whatsapp-provider.handler';
 import { WhatsAppService } from './whatsapp.service';
 
@@ -24,6 +25,7 @@ export class WhatsAppBookingListener {
   constructor(
     private providerHandler: WhatsAppProviderHandler,
     private whatsappService: WhatsAppService,
+    private prisma: PrismaService,
   ) {}
 
   @OnEvent('booking.created')
@@ -78,6 +80,45 @@ export class WhatsAppBookingListener {
       this.logger.log(
         `⏰ Cleared timeout for booking ${payload.bookingId} (provider responded)`,
       );
+    }
+  }
+
+  /**
+   * When a provider acts from the app, sync the notification to WhatsApp
+   * so the provider's WA session stays consistent.
+   */
+  @OnEvent('booking.status.changed')
+  async handleStatusChanged(payload: {
+    bookingId: string;
+    status: string;
+    customerId?: string;
+    providerName?: string;
+  }) {
+    try {
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: payload.bookingId },
+        include: {
+          provider: { include: { user: { select: { phone: true, name: true } } } },
+          customer: { select: { name: true } },
+        },
+      });
+      if (!booking?.provider?.user?.phone) return;
+
+      const providerPhone = booking.provider.user.phone;
+      const statusMessages: Record<string, string> = {
+        ACCEPTED: `✅ Trabajo aceptado desde la app. El cliente *${booking.customer?.name || ''}* fue notificado.`,
+        REJECTED: `❌ Trabajo rechazado desde la app.`,
+        PROVIDER_ARRIVING: `📍 Marcaste "en camino" desde la app. El cliente fue notificado.`,
+        IN_PROGRESS: `🔧 Trabajo iniciado desde la app. El cliente fue notificado.`,
+        COMPLETED: `✅ ¡Trabajo completado desde la app! El cliente podrá calificarte.`,
+      };
+
+      const msg = statusMessages[payload.status];
+      if (msg) {
+        await this.whatsappService.sendTextMessage(providerPhone, msg);
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to sync status to WA: ${error.message}`);
     }
   }
 

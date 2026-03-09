@@ -212,6 +212,7 @@ export interface ProviderSummary {
   ratingAverage: number;
   ratingCount: number;
   totalJobs: number;
+  tier?: number;
   isVerified: boolean;
   isAvailable: boolean;
   locationLat: number | null;
@@ -462,6 +463,262 @@ export const ratingsApi = {
 
   getMyRating: (bookingId: string) =>
     api<MyRatingResponse>(`/bookings/${bookingId}/my-rating`),
+};
+
+// ─── Saved Addresses ─────────────────────────────────────────
+
+export interface SavedAddress {
+  id: string;
+  userId: string;
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const addressesApi = {
+  list: () => api<SavedAddress[]>('/addresses'),
+
+  create: (data: { label: string; address: string; lat: number; lng: number; isDefault?: boolean }) =>
+    api<SavedAddress>('/addresses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: { label?: string; address?: string; lat?: number; lng?: number; isDefault?: boolean }) =>
+    api<SavedAddress>(`/addresses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    api<{ success: boolean }>(`/addresses/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Provider Dashboard ──────────────────────────────────────
+
+export interface ProviderDashboardData {
+  profile: {
+    id: string;
+    name: string | null;
+    bio: string | null;
+    isVerified: boolean;
+    isAvailable: boolean;
+    serviceTypes: string[];
+    zones: { id: string; name: string; city: string }[];
+  };
+  stats: {
+    totalJobs: number;
+    weekJobs: number;
+    monthJobs: number;
+    ratingAverage: number;
+    ratingCount: number;
+  };
+  weeklyBreakdown: { weekStart: string; jobs: number }[];
+  pendingJobs: BookingSummary[];
+  activeJobs: BookingSummary[];
+}
+
+export interface ProviderJobsResponse {
+  data: BookingSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ProviderEarnings {
+  thisMonth: { total: number; jobs: number };
+  lastMonth: { total: number; jobs: number };
+  allTimeJobs: number;
+}
+
+export interface ProviderProfileData {
+  id: string;
+  userId: string;
+  name: string | null;
+  phone: string;
+  email: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  serviceTypes: string[];
+  totalJobs: number;
+  tier: number;
+  isVerified: boolean;
+  isAvailable: boolean;
+  ratingAverage: number;
+  ratingCount: number;
+  memberSince: string;
+  trustScore: number | null;
+  zones: { id: string; name: string; city: string; state: string }[];
+}
+
+export const providerApi = {
+  getDashboard: () =>
+    api<ProviderDashboardData>('/provider/dashboard'),
+
+  getJobs: (params?: { filter?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.filter) searchParams.set('filter', params.filter);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const qs = searchParams.toString();
+    return api<ProviderJobsResponse>(`/provider/jobs${qs ? `?${qs}` : ''}`);
+  },
+
+  acceptJob: (id: string) =>
+    api<BookingSummary>(`/provider/jobs/${id}/accept`, { method: 'PATCH' }),
+
+  rejectJob: (id: string) =>
+    api<BookingSummary>(`/provider/jobs/${id}/reject`, { method: 'PATCH' }),
+
+  updateJobStatus: (id: string, action: 'arriving' | 'start' | 'complete') =>
+    api<BookingSummary>(`/provider/jobs/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
+    }),
+
+  getEarnings: () =>
+    api<ProviderEarnings>('/provider/earnings'),
+
+  getProfile: () =>
+    api<ProviderProfileData>('/provider/profile'),
+
+  updateProfile: (data: { name?: string; bio?: string; isAvailable?: boolean }) =>
+    api<any>('/provider/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
+// ─── Admin ────────────────────────────────────────────────────
+
+export interface AdminStats {
+  applications: {
+    pending: number;
+    total: number;
+    approved: number;
+    rejected: number;
+  };
+  providers: {
+    total: number;
+    byTier: { tier1: number; tier2: number; tier3: number; tier4: number };
+  };
+  bookings: {
+    total: number;
+    today: number;
+    thisWeek: number;
+    thisMonth: number;
+    completed: number;
+  };
+  customers: { total: number };
+}
+
+export interface ProviderApplication {
+  id: string;
+  phone: string;
+  name: string | null;
+  bio: string | null;
+  yearsExperience: number;
+  categories: string[];
+  serviceZones: string[];
+  inePhotoFront: string | null;
+  inePhotoBack: string | null;
+  selfiePhoto: string | null;
+  verificationStatus: string;
+  verificationNotes: string | null;
+  rejectionReason: string | null;
+  approvedTier: number | null;
+  onboardingStep: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationListResponse {
+  data: ProviderApplication[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminProvider {
+  id: string;
+  userId: string;
+  bio: string | null;
+  serviceTypes: string[];
+  totalJobs: number;
+  tier: number;
+  isVerified: boolean;
+  isAvailable: boolean;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+    phone: string;
+    email: string | null;
+    ratingAverage: number;
+    ratingCount: number;
+    isActive: boolean;
+    createdAt: string;
+  };
+  trustScore: { score: number } | null;
+  _count: { bookings: number };
+}
+
+export interface AdminProviderListResponse {
+  data: AdminProvider[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const adminApi = {
+  getStats: () =>
+    api<AdminStats>('/admin/stats'),
+
+  getApplications: (params?: { status?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const qs = searchParams.toString();
+    return api<ApplicationListResponse>(`/admin/applications${qs ? `?${qs}` : ''}`);
+  },
+
+  getApplication: (id: string) =>
+    api<ProviderApplication>(`/admin/applications/${id}`),
+
+  approveApplication: (id: string, tier: number = 1) =>
+    api<{ success: boolean; userId: string; tier: number }>(
+      `/admin/applications/${id}/approve`,
+      { method: 'PATCH', body: JSON.stringify({ tier }) },
+    ),
+
+  rejectApplication: (id: string, reason: string) =>
+    api<{ success: boolean }>(
+      `/admin/applications/${id}/reject`,
+      { method: 'PATCH', body: JSON.stringify({ reason }) },
+    ),
+
+  getProviders: (params?: { tier?: number; search?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.tier !== undefined) searchParams.set('tier', String(params.tier));
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const qs = searchParams.toString();
+    return api<AdminProviderListResponse>(`/admin/providers${qs ? `?${qs}` : ''}`);
+  },
+
+  updateProviderTier: (providerId: string, tier: number) =>
+    api<{ success: boolean; oldTier: number; newTier: number }>(
+      `/admin/providers/${providerId}/tier`,
+      { method: 'PATCH', body: JSON.stringify({ tier }) },
+    ),
 };
 
 // ─── Zones / Location ────────────────────────────────────────

@@ -4,7 +4,9 @@ import { WhatsAppController } from './whatsapp.controller';
 import { WhatsAppProviderHandler } from './whatsapp-provider.handler';
 import { WhatsAppOnboardingHandler } from './whatsapp-onboarding.handler';
 import { WhatsAppBookingListener } from './whatsapp-booking.listener';
+import { WhatsAppAdminListener } from './whatsapp-admin.listener';
 import { WhatsAppNotificationQueueService } from './whatsapp-notification-queue.service';
+import { WhatsAppWeeklySummaryService } from './whatsapp-weekly-summary.service';
 import { BookingsModule } from '../bookings/bookings.module';
 import { MessagesModule } from '../messages/messages.module';
 import { RatingsModule } from '../ratings/ratings.module';
@@ -31,7 +33,9 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     WhatsAppOnboardingHandler,
     WhatsAppProviderHandler,
     WhatsAppBookingListener,
+    WhatsAppAdminListener,
     WhatsAppNotificationQueueService,
+    WhatsAppWeeklySummaryService,
   ],
   exports: [WhatsAppService, WhatsAppProviderHandler],
 })

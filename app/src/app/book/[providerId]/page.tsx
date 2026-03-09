@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../../../lib/auth-context';
 import {
   providersApi,
   bookingsApi,
+  addressesApi,
   type ProviderDetail,
+  type SavedAddress,
 } from '../../../lib/api';
 
 type Step = 'description' | 'address' | 'schedule' | 'confirm' | 'sending' | 'done';
@@ -25,10 +27,24 @@ export default function BookingFlowPage() {
   // Form state
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [scheduleOption, setScheduleOption] = useState<'today' | 'tomorrow' | 'custom'>('today');
   const [customDate, setCustomDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
+
+  // Address/location state
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [autocompleteResults, setAutocompleteResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveLabel, setSaveLabel] = useState('');
+  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const geocoder = useRef<google.maps.Geocoder | null>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   const loadProvider = useCallback(async () => {
     try {
@@ -50,8 +66,118 @@ export default function BookingFlowPage() {
   useEffect(() => {
     if (isAuthenticated && providerId) {
       loadProvider();
+      addressesApi.list().then(setSavedAddresses).catch(() => {});
     }
   }, [isAuthenticated, providerId, loadProvider]);
+
+  // Load Google Maps JS API
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+    if (!apiKey || typeof window === 'undefined') return;
+    if (window.google?.maps?.places) {
+      setGoogleLoaded(true);
+      autocompleteService.current = new google.maps.places.AutocompleteService();
+      geocoder.current = new google.maps.Geocoder();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.onload = () => {
+      setGoogleLoaded(true);
+      autocompleteService.current = new google.maps.places.AutocompleteService();
+      geocoder.current = new google.maps.Geocoder();
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  const handleAddressInput = useCallback(
+    (value: string) => {
+      setAddress(value);
+      setLat(null);
+      setLng(null);
+      if (!value || value.length < 3 || !autocompleteService.current) {
+        setAutocompleteResults([]);
+        setShowAutocomplete(false);
+        return;
+      }
+      autocompleteService.current.getPlacePredictions(
+        { input: value, componentRestrictions: { country: 'mx' } },
+        (predictions) => {
+          setAutocompleteResults(predictions || []);
+          setShowAutocomplete(!!predictions?.length);
+        },
+      );
+    },
+    [],
+  );
+
+  const selectPlace = useCallback((placeId: string, description: string) => {
+    setAddress(description);
+    setShowAutocomplete(false);
+    if (!geocoder.current) return;
+    geocoder.current.geocode({ placeId }, (results, status) => {
+      if (status === 'OK' && results?.[0]) {
+        const loc = results[0].geometry.location;
+        setLat(loc.lat());
+        setLng(loc.lng());
+      }
+    });
+  }, []);
+
+  const useCurrentLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setError('Tu navegador no soporta geolocalización');
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setLat(latitude);
+        setLng(longitude);
+        if (geocoder.current) {
+          geocoder.current.geocode(
+            { location: { lat: latitude, lng: longitude } },
+            (results, status) => {
+              if (status === 'OK' && results?.[0]) {
+                setAddress(results[0].formatted_address);
+              } else {
+                setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+              }
+              setGpsLoading(false);
+            },
+          );
+        } else {
+          setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          setGpsLoading(false);
+        }
+      },
+      () => {
+        setError('No se pudo obtener tu ubicación. Verifica los permisos.');
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }, []);
+
+  const selectSavedAddress = useCallback((addr: SavedAddress) => {
+    setAddress(addr.address);
+    setLat(addr.lat);
+    setLng(addr.lng);
+  }, []);
+
+  const handleSaveAddress = useCallback(async () => {
+    if (!saveLabel.trim() || !address || !lat || !lng) return;
+    try {
+      const saved = await addressesApi.create({ label: saveLabel.trim(), address, lat, lng });
+      setSavedAddresses((prev) => [saved, ...prev]);
+      setShowSaveDialog(false);
+      setSaveLabel('');
+    } catch {
+      setError('No se pudo guardar la dirección');
+    }
+  }, [saveLabel, address, lat, lng]);
 
   const getScheduledAt = (): string | undefined => {
     const now = new Date();
@@ -99,6 +225,8 @@ export default function BookingFlowPage() {
         categoryId: matchedCategory.id,
         description,
         address: address || undefined,
+        lat: lat || undefined,
+        lng: lng || undefined,
         scheduledAt: getScheduledAt(),
       });
 
@@ -245,17 +373,138 @@ export default function BookingFlowPage() {
                 Indica la dirección donde se necesita el servicio
               </p>
             </div>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Ej: Calle Reforma 123, Col. Roma Norte, CDMX"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-colors"
-              autoFocus
-            />
-            <p className="text-xs text-gray-400">
-              💡 En futuras versiones podrás usar GPS para ubicación automática
-            </p>
+
+            {/* GPS button */}
+            <button
+              onClick={useCurrentLocation}
+              disabled={gpsLoading}
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left disabled:opacity-50"
+            >
+              {gpsLoading ? (
+                <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span className="text-lg">📍</span>
+              )}
+              <div>
+                <p className="text-sm font-semibold text-indigo-700">Usar mi ubicación actual</p>
+                <p className="text-xs text-indigo-500">Detectar automáticamente con GPS</p>
+              </div>
+            </button>
+
+            {/* Saved addresses */}
+            {savedAddresses.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 mb-2 font-medium">Direcciones guardadas:</p>
+                <div className="flex flex-wrap gap-2">
+                  {savedAddresses.map((addr) => (
+                    <button
+                      key={addr.id}
+                      onClick={() => selectSavedAddress(addr)}
+                      className={`px-3 py-2 rounded-xl text-xs transition-all ${
+                        address === addr.address && lat === addr.lat
+                          ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent'
+                      }`}
+                    >
+                      {addr.isDefault ? '⭐ ' : ''}{addr.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Address input with autocomplete */}
+            <div className="relative">
+              <input
+                ref={addressInputRef}
+                type="text"
+                value={address}
+                onChange={(e) => handleAddressInput(e.target.value)}
+                onFocus={() => autocompleteResults.length > 0 && setShowAutocomplete(true)}
+                placeholder={googleLoaded ? 'Escribe tu dirección...' : 'Ej: Calle Reforma 123, Col. Roma Norte, CDMX'}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-colors"
+                autoFocus
+              />
+              {lat && lng && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>
+              )}
+
+              {/* Autocomplete dropdown */}
+              {showAutocomplete && autocompleteResults.length > 0 && (
+                <div className="absolute z-20 top-full mt-1 w-full bg-white rounded-xl shadow-lg border border-gray-200 max-h-60 overflow-y-auto">
+                  {autocompleteResults.map((pred) => (
+                    <button
+                      key={pred.place_id}
+                      onClick={() => selectPlace(pred.place_id, pred.description)}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                    >
+                      <p className="text-sm text-gray-800">{pred.structured_formatting?.main_text}</p>
+                      <p className="text-xs text-gray-500">{pred.structured_formatting?.secondary_text}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Map preview */}
+            {lat && lng && (
+              <div className="rounded-xl overflow-hidden border border-gray-200">
+                <img
+                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=16&size=600x200&scale=2&markers=color:red%7C${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}`}
+                  alt="Ubicación seleccionada"
+                  className="w-full h-36 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <div className="p-3 bg-green-50">
+                  <p className="text-xs text-green-700 font-medium">✓ Ubicación confirmada</p>
+                  <p className="text-xs text-green-600 truncate">{address}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Save address option */}
+            {lat && lng && address && !savedAddresses.find((a) => a.lat === lat && a.lng === lng) && (
+              <>
+                {!showSaveDialog ? (
+                  <button
+                    onClick={() => setShowSaveDialog(true)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    💾 Guardar esta dirección para futuras solicitudes
+                  </button>
+                ) : (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={saveLabel}
+                      onChange={(e) => setSaveLabel(e.target.value)}
+                      placeholder="Ej: Mi casa, Oficina..."
+                      className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveAddress}
+                      disabled={!saveLabel.trim()}
+                      className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => { setShowSaveDialog(false); setSaveLabel(''); }}
+                      className="px-2 py-2 text-gray-400 text-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {!googleLoaded && (
+              <p className="text-xs text-gray-400">
+                💡 El autocompletado de direcciones estará disponible cuando se configure Google Maps
+              </p>
+            )}
           </div>
         )}
 
@@ -346,7 +595,11 @@ export default function BookingFlowPage() {
             {/* Summary */}
             <div className="space-y-3">
               <SummaryRow icon="📝" label="Descripción" value={description} />
-              <SummaryRow icon="📍" label="Dirección" value={address || 'No especificada'} />
+              <SummaryRow
+                icon="📍"
+                label="Dirección"
+                value={`${address || 'No especificada'}${lat && lng ? ' ✓ GPS' : ''}`}
+              />
               <SummaryRow
                 icon="📅"
                 label="Cuándo"

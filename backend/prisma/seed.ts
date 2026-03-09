@@ -99,6 +99,19 @@ async function main() {
 
   console.log(`✅ ${categories.length} service categories created`);
 
+  // ── Admin User ──
+  const adminUser = await prisma.user.upsert({
+    where: { phone: '+5215500000000' },
+    update: { role: 'ADMIN', name: 'Admin Handy' },
+    create: {
+      phone: '+5215500000000',
+      name: 'Admin Handy',
+      role: 'ADMIN',
+      email: 'admin@handy.mx',
+    },
+  });
+  console.log(`✅ Admin user created: ${adminUser.phone} (${adminUser.id})`);
+
   // ── Provider Users + Profiles ──
   const providers = [
     {

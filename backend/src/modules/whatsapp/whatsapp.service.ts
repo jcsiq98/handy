@@ -274,6 +274,32 @@ export class WhatsAppService implements OnModuleInit {
   }
 
   /**
+   * Send a location message (pin on map).
+   * WhatsApp Cloud API supports type "location" natively.
+   */
+  async sendLocationMessage(
+    to: string,
+    lat: number,
+    lng: number,
+    name: string,
+    address: string,
+  ): Promise<WASendResult> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: this.normalizePhone(to),
+      type: 'location',
+      location: {
+        latitude: lat,
+        longitude: lng,
+        name,
+        address,
+      },
+    };
+    return this.sendWithRetry(payload, `location to ${to}`);
+  }
+
+  /**
    * Mark a message as read.
    */
   async markAsRead(

@@ -36,6 +36,7 @@ model User {
   ratingsReceived  Rating[]   @relation("RatingsReceived")
   otpCodes         OtpCode[]
   refreshTokens    RefreshToken[]
+  savedAddresses   SavedAddress[]
 
   @@map("users")
 }
@@ -55,6 +56,7 @@ model ProviderProfile {
   bio           String?
   serviceTypes  Json     @default("[]") @map("service_types")
   totalJobs     Int      @default(0) @map("total_jobs")
+  tier          Int      @default(1)
   isVerified    Boolean  @default(false) @map("is_verified")
   isAvailable   Boolean  @default(true) @map("is_available")
   locationLat   Float?   @map("location_lat")
@@ -67,7 +69,9 @@ model ProviderProfile {
   user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   bookings      Booking[]             @relation("ProviderBookings")
   serviceZones  ProviderServiceZone[]
+  trustScore    TrustScore?
 
+  @@index([tier])
   @@map("provider_profiles")
 }
 
@@ -159,6 +163,9 @@ model Booking {
   @@index([customerId])
   @@index([providerId])
   @@index([status])
+  @@index([customerId, status])
+  @@index([providerId, status])
+  @@index([createdAt])
   @@map("bookings")
 }
 
@@ -193,6 +200,7 @@ model Message {
 
   @@index([bookingId])
   @@index([senderId])
+  @@index([createdAt])
   @@map("messages")
 }
 
@@ -247,6 +255,8 @@ model ProviderApplication {
   selfiePhoto        String?            @map("selfie_photo")
   verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
   verificationNotes  String?            @map("verification_notes")
+  rejectionReason    String?            @map("rejection_reason")
+  approvedTier       Int?               @map("approved_tier")
 
   // Onboarding step tracking
   onboardingStep     String             @default("WELCOME") @map("onboarding_step")
@@ -258,6 +268,8 @@ model ProviderApplication {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
+  @@index([verificationStatus])
+  @@index([phone])
   @@map("provider_applications")
 }
 
@@ -266,6 +278,26 @@ enum VerificationStatus {
   DOCS_SUBMITTED
   APPROVED
   REJECTED
+}
+
+// ──────────────────────────────────────────────
+// Saved Addresses (customer favorites)
+// ──────────────────────────────────────────────
+model SavedAddress {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  label     String                          // "Mi casa", "Oficina", etc.
+  address   String
+  lat       Float
+  lng       Float
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_addresses")
 }
 
 // ──────────────────────────────────────────────
@@ -303,4 +335,39 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// ──────────────────────────────────────────────
+// Trust Score (dynamic provider reliability score)
+// ──────────────────────────────────────────────
+model TrustScore {
+  id              String   @id @default(uuid())
+  providerId      String   @unique @map("provider_id")
+  score           Float    @default(50)
+  factors         Json     @default("{}")
+  lastCalculated  DateTime @default(now()) @map("last_calculated")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([score])
+  @@map("trust_scores")
+}
+
+// ──────────────────────────────────────────────
+// Trust Score History (audit trail)
+// ──────────────────────────────────────────────
+model TrustScoreHistory {
+  id              String   @id @default(uuid())
+  providerId      String   @map("provider_id")
+  previousScore   Float    @map("previous_score")
+  newScore        Float    @map("new_score")
+  reason          String
+  factors         Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([providerId])
+  @@index([createdAt])
+  @@map("trust_score_history")
 }

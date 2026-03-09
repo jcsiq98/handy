@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CloudinaryService } from './cloudinary.service';
 import { ConfigService } from '@nestjs/config';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 
 interface VerificationTokenPayload {
   applicationId: string;
@@ -25,6 +26,7 @@ export class OnboardingService {
     private jwt: JwtService,
     private cloudinary: CloudinaryService,
     private config: ConfigService,
+    private whatsapp: WhatsAppService,
   ) {}
 
   /**
@@ -139,23 +141,30 @@ export class OnboardingService {
         ),
       ]);
 
-      // Update application with photo URLs and AUTO-APPROVE (MVP)
+      // Submit for admin review instead of auto-approving
       await this.prisma.providerApplication.update({
         where: { id: applicationId },
         data: {
           inePhotoFront: ineFrontUrl,
           inePhotoBack: ineBackUrl,
           selfiePhoto: selfieUrl,
-          verificationStatus: 'APPROVED', // MVP: auto-approve
+          verificationStatus: 'DOCS_SUBMITTED',
         },
       });
 
       this.logger.log(
-        `Verification photos uploaded for application ${applicationId}`,
+        `Verification photos uploaded for application ${applicationId} — submitted for review`,
       );
 
-      // MVP: Auto-create User + ProviderProfile
-      await this.autoApproveProvider(application);
+      // Notify provider that docs are under review
+      await this.whatsapp.sendTextMessage(
+        application.phone,
+        `📋 *¡Documentos recibidos!*\n\n` +
+          `Hemos recibido tus fotos de verificación, ${application.name || ''}.\n\n` +
+          `Tu solicitud está siendo revisada por nuestro equipo. ` +
+          `Te notificaremos por aquí cuando tengamos una respuesta.\n\n` +
+          `⏱ Tiempo estimado: 24-48 horas.`,
+      );
     } catch (error: any) {
       this.logger.error(
         `Failed to upload verification photos: ${error.message}`,
@@ -236,12 +245,22 @@ export class OnboardingService {
       this.logger.log(
         `✅ Auto-approved provider: ${application.name} (${application.phone}) — User + Profile created`,
       );
+
+      // Notify provider via WhatsApp
+      await this.whatsapp.sendTextMessage(
+        application.phone,
+        `🎉 *¡Felicidades ${application.name || ''}!*\n\n` +
+          `Tu solicitud como proveedor en *Handy* ha sido *aprobada*. ✅\n\n` +
+          `Ya puedes recibir solicitudes de clientes por aquí.\n\n` +
+          `📋 Escribe *"menu"* para ver tus opciones\n` +
+          `❓ Escribe *"ayuda"* para ver los comandos disponibles\n\n` +
+          `¡Bienvenido al equipo! 💪`,
+      );
     } catch (error: any) {
       this.logger.error(
         `Failed to auto-approve provider ${application.phone}: ${error.message}`,
         error.stack,
       );
-      // Don't throw — photos are already uploaded, approval can be retried
     }
   }
 

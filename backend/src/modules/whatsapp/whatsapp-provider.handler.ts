@@ -19,6 +19,8 @@ export enum ProviderState {
   IN_PROGRESS = 'IN_PROGRESS',
   AWAITING_RATING = 'AWAITING_RATING',
   AWAITING_RATING_COMMENT = 'AWAITING_RATING_COMMENT',
+  EDITING_NAME = 'EDITING_NAME',
+  EDITING_BIO = 'EDITING_BIO',
 }
 
 interface ProviderSession {
@@ -132,20 +134,37 @@ export class WhatsAppProviderHandler {
     const categoryName = booking.category?.name || 'Servicio';
     const categoryIcon = booking.category?.icon || '🛠';
 
+    // Calculate distance if both provider and booking have coords
+    let distanceText = '';
+    if (
+      booking.locationLat && booking.locationLng &&
+      booking.provider.locationLat && booking.provider.locationLng
+    ) {
+      const dist = this.haversineDistance(
+        booking.provider.locationLat, booking.provider.locationLng,
+        booking.locationLat, booking.locationLng,
+      );
+      distanceText = ` (a ${dist.toFixed(1)} km)`;
+    }
+
     // Build notification message
     const msg =
       `🔔 *¡Nuevo trabajo!*\n\n` +
       `${categoryIcon} Servicio: ${categoryName}\n` +
       `📝 "${booking.description}"\n` +
-      `📍 ${booking.address || 'Sin dirección'}\n` +
+      `📍 ${booking.address || 'Sin dirección'}${distanceText}\n` +
       `📅 ${booking.scheduledAt ? new Date(booking.scheduledAt).toLocaleDateString('es-MX') : 'Lo antes posible'}\n` +
       `👤 Cliente: ${customerName} (${customerRating})\n\n` +
       `⏱ Responde en los próximos 10 minutos`;
 
-    // Send as plain text (interactive buttons fail in WhatsApp test/sandbox mode)
-    await this.whatsapp.sendTextMessage(
+    // Send interactive buttons for accept/reject
+    await this.whatsapp.sendInteractiveButtons(
       providerPhone,
-      msg + `\n\n✅ Responde *aceptar* para tomar el trabajo\n❌ Responde *rechazar* para pasar`,
+      msg,
+      [
+        { id: `accept_${bookingId}`, title: '✅ Aceptar' },
+        { id: `reject_${bookingId}`, title: '❌ Rechazar' },
+      ],
     );
 
     // Set provider session to REQUEST_RECEIVED
@@ -200,6 +219,54 @@ export class WhatsAppProviderHandler {
     }
     if (text === 'menu' || text === 'inicio') {
       return this.sendProviderDashboard(senderPhone, provider.name || senderName);
+    }
+    if (text === 'dashboard' || text === 'estadisticas' || text === 'stats') {
+      return this.sendDashboardStats(senderPhone, provider.providerProfile!.id);
+    }
+    if (text === 'trabajos' || text === 'jobs' || text === 'mis trabajos') {
+      return this.sendJobsList(senderPhone, provider.providerProfile!.id);
+    }
+    if (text === 'cuenta' || text === 'mi cuenta' || text === 'perfil') {
+      return this.sendAccountInfo(senderPhone, provider.providerProfile!.id);
+    }
+
+    // ── Handle menu button presses ──
+    if (buttonReply) {
+      if (buttonReply.id === 'menu_dashboard' && provider.providerProfile) {
+        return this.sendDashboardStats(senderPhone, provider.providerProfile.id);
+      }
+      if (buttonReply.id === 'menu_jobs' && provider.providerProfile) {
+        return this.sendJobsList(senderPhone, provider.providerProfile.id);
+      }
+      if (buttonReply.id === 'menu_account' && provider.providerProfile) {
+        return this.sendAccountInfo(senderPhone, provider.providerProfile.id);
+      }
+      if (buttonReply.id === 'edit_name') {
+        await this.setSession(senderPhone, { ...session, state: ProviderState.EDITING_NAME });
+        await this.whatsapp.sendTextMessage(senderPhone, '✏️ Escribe tu nuevo nombre:');
+        return;
+      }
+      if (buttonReply.id === 'edit_bio') {
+        await this.setSession(senderPhone, { ...session, state: ProviderState.EDITING_BIO });
+        await this.whatsapp.sendTextMessage(senderPhone, '📝 Escribe tu nueva bio profesional:');
+        return;
+      }
+      const toggleMatch = buttonReply.id.match(/^toggle_avail_(.+)$/);
+      if (toggleMatch) {
+        const profileId = toggleMatch[1];
+        const profile = await this.prisma.providerProfile.findUnique({ where: { id: profileId } });
+        if (profile) {
+          const newVal = !profile.isAvailable;
+          await this.prisma.providerProfile.update({ where: { id: profileId }, data: { isAvailable: newVal } });
+          await this.whatsapp.sendTextMessage(
+            senderPhone,
+            newVal
+              ? '🟢 *Ahora estás disponible.* Recibirás nuevas solicitudes.'
+              : '🔴 *Ya no estás disponible.* No recibirás solicitudes hasta que lo actives.',
+          );
+        }
+        return;
+      }
     }
 
     // ── Check for accept/reject button presses (handle regardless of state) ──
@@ -263,16 +330,22 @@ export class WhatsAppProviderHandler {
         return this.handleAccepted(senderPhone, text, buttonReply, session);
 
       case ProviderState.ARRIVING:
-        return this.handleArriving(senderPhone, text, session);
+        return this.handleArriving(senderPhone, text, session, buttonReply);
 
       case ProviderState.IN_PROGRESS:
-        return this.handleInProgress(senderPhone, text, session);
+        return this.handleInProgress(senderPhone, text, session, buttonReply);
 
       case ProviderState.AWAITING_RATING:
         return this.handleAwaitingRating(senderPhone, text, buttonReply, session);
 
       case ProviderState.AWAITING_RATING_COMMENT:
         return this.handleAwaitingRatingComment(senderPhone, text, session);
+
+      case ProviderState.EDITING_NAME:
+        return this.handleEditingName(senderPhone, text, session);
+
+      case ProviderState.EDITING_BIO:
+        return this.handleEditingBio(senderPhone, text, session);
 
       default:
         return this.sendProviderDashboard(senderPhone, senderName);
@@ -451,14 +524,34 @@ export class WhatsAppProviderHandler {
         `✅ *¡Trabajo aceptado!*\n\n` +
           `El cliente ${booking.customer?.name || ''} será notificado.\n\n` +
           `📍 Dirección: ${booking.address || 'Sin dirección'}\n` +
-          `📝 ${booking.description}\n\n` +
-          `Cuando estés en camino, escribe *"en camino"*`,
+          `📝 ${booking.description}`,
       );
 
-      await this.whatsapp.sendTextMessage(
-        phone,
-        `¿Qué deseas hacer?\n\n📍 Escribe *"en camino"* cuando vayas para allá\n💬 Escribe cualquier mensaje para chatear con el cliente`,
-      );
+      // Send location message if coordinates are available
+      if (booking.locationLat && booking.locationLng) {
+        await this.whatsapp.sendLocationMessage(
+          phone,
+          booking.locationLat,
+          booking.locationLng,
+          booking.customer?.name || 'Cliente',
+          booking.address || 'Ubicación del cliente',
+        );
+
+        const mapsUrl = `https://maps.google.com/?q=${booking.locationLat},${booking.locationLng}`;
+        const wazeUrl = `https://waze.com/ul?ll=${booking.locationLat},${booking.locationLng}&navigate=yes`;
+        await this.whatsapp.sendTextMessage(
+          phone,
+          `🗺 *Navegación:*\n\n` +
+            `📍 Google Maps: ${mapsUrl}\n` +
+            `🟣 Waze: ${wazeUrl}\n\n` +
+            `Escribe *"en camino"* cuando vayas para allá`,
+        );
+      } else {
+        await this.whatsapp.sendTextMessage(
+          phone,
+          `Escribe *"en camino"* cuando vayas para allá\n💬 Escribe cualquier mensaje para chatear con el cliente`,
+        );
+      }
 
       // Update session
       await this.setSession(phone, {
@@ -549,11 +642,16 @@ export class WhatsAppProviderHandler {
     buttonReply: { id: string; title: string } | null,
     session: ProviderSession,
   ) {
-    // "On my way" via button
+    // Button replies
     if (buttonReply?.id === 'btn_on_my_way') {
       return this.markArriving(phone, session);
     }
-    // Chat button
+    if (buttonReply?.id === 'btn_start_work') {
+      return this.markInProgress(phone, session);
+    }
+    if (buttonReply?.id === 'btn_complete') {
+      return this.markCompleted(phone, session);
+    }
     if (buttonReply?.id === 'btn_chat') {
       await this.whatsapp.sendTextMessage(
         phone,
@@ -605,9 +703,13 @@ export class WhatsAppProviderHandler {
         });
       }
 
-      await this.whatsapp.sendTextMessage(
+      await this.whatsapp.sendInteractiveButtons(
         phone,
-        `📍 *¡En camino!* El cliente ha sido notificado.\n\nCuando llegues y empieces el trabajo, escribe *"empezar"*`,
+        `📍 *¡En camino!* El cliente ha sido notificado.\n\nCuando llegues y empieces el trabajo:`,
+        [
+          { id: 'btn_start_work', title: '🔧 Empezar trabajo' },
+          { id: 'btn_chat', title: '💬 Chatear' },
+        ],
       );
 
       await this.setSession(phone, {
@@ -631,7 +733,11 @@ export class WhatsAppProviderHandler {
     phone: string,
     text: string,
     session: ProviderSession,
+    buttonReply?: { id: string; title: string } | null,
   ) {
+    if (buttonReply?.id === 'btn_start_work') {
+      return this.markInProgress(phone, session);
+    }
     if (text === 'empezar' || text === 'start' || text === 'iniciar') {
       return this.markInProgress(phone, session);
     }
@@ -665,9 +771,13 @@ export class WhatsAppProviderHandler {
         });
       }
 
-      await this.whatsapp.sendTextMessage(
+      await this.whatsapp.sendInteractiveButtons(
         phone,
-        `🔧 *¡Trabajo iniciado!* El cliente ha sido notificado.\n\nCuando termines, escribe *"completar"*`,
+        `🔧 *¡Trabajo iniciado!* El cliente ha sido notificado.\n\nCuando termines:`,
+        [
+          { id: 'btn_complete', title: '✅ Completar' },
+          { id: 'btn_chat', title: '💬 Chatear' },
+        ],
       );
 
       await this.setSession(phone, {
@@ -691,7 +801,11 @@ export class WhatsAppProviderHandler {
     phone: string,
     text: string,
     session: ProviderSession,
+    buttonReply?: { id: string; title: string } | null,
   ) {
+    if (buttonReply?.id === 'btn_complete') {
+      return this.markCompleted(phone, session);
+    }
     if (text === 'completar' || text === 'complete' || text === 'terminar' || text === 'listo') {
       return this.markCompleted(phone, session);
     }
@@ -742,10 +856,15 @@ export class WhatsAppProviderHandler {
         `✅ *¡Trabajo completado!* 🎉\n\nEl cliente ha sido notificado y podrá calificarte.\n\n¡Ahora te toca a ti! ¿Cómo fue tu experiencia con ${session.customerName || 'el cliente'}?`,
       );
 
-      // Send rating as text
-      await this.whatsapp.sendTextMessage(
+      // Send rating with interactive buttons
+      await this.whatsapp.sendInteractiveButtons(
         phone,
-        `⭐ ¿Cómo calificarías a ${session.customerName || 'el cliente'}?\n\nResponde con un número del *1* al *5*\nO escribe *"skip"* para omitir`,
+        `⭐ ¿Cómo calificarías a ${session.customerName || 'el cliente'}?\n\nO responde con un número del *1* al *5*`,
+        [
+          { id: `rate_high_${bookingId}`, title: '⭐⭐⭐⭐⭐ (5)' },
+          { id: `rate_mid_${bookingId}`, title: '⭐⭐⭐ (3)' },
+          { id: `rate_low_${bookingId}`, title: '⭐⭐ (2)' },
+        ],
       );
 
       // Transition to AWAITING_RATING
@@ -908,14 +1027,16 @@ export class WhatsAppProviderHandler {
   // ─── Dashboard / Help ───────────────────────────────────
 
   private async sendProviderDashboard(phone: string, name: string) {
-    await this.whatsapp.sendTextMessage(
+    await this.whatsapp.sendInteractiveButtons(
       phone,
-      `👋 Hola ${name}! Bienvenido a *Handy*.\n\n` +
+      `👋 Hola *${name}*! Bienvenido a *Handy*.\n\n` +
         `Recibirás notificaciones aquí cuando un cliente solicite tus servicios.\n\n` +
-        `📋 Comandos:\n` +
-        `• *"ayuda"* — Ver opciones\n` +
-        `• *"menu"* — Ver este menú\n\n` +
-        `¡Mantente atento a nuevas solicitudes! 🔔`,
+        `¿Qué deseas hacer?`,
+      [
+        { id: 'menu_dashboard', title: '📊 Mi Dashboard' },
+        { id: 'menu_jobs', title: '📝 Mis Trabajos' },
+        { id: 'menu_account', title: '⚙️ Mi Cuenta' },
+      ],
     );
   }
 
@@ -924,16 +1045,187 @@ export class WhatsAppProviderHandler {
       phone,
       `❓ *Ayuda — Handy Proveedor*\n\n` +
         `Cuando recibas una solicitud:\n` +
-        `✅ *"aceptar"* — Aceptar el trabajo\n` +
-        `❌ *"rechazar"* — Rechazar el trabajo\n\n` +
+        `✅ Toca *Aceptar* o escribe "aceptar"\n` +
+        `❌ Toca *Rechazar* o escribe "rechazar"\n\n` +
         `Durante un trabajo:\n` +
         `📍 *"en camino"* — Indicar que vas en camino\n` +
         `🔧 *"empezar"* — Iniciar el trabajo\n` +
         `✅ *"completar"* — Marcar como terminado\n\n` +
         `General:\n` +
         `📋 *"menu"* — Ver menú principal\n` +
+        `📊 *"dashboard"* — Ver tus estadísticas\n` +
+        `📝 *"trabajos"* — Ver tus trabajos recientes\n` +
         `❓ *"ayuda"* — Ver este mensaje`,
     );
+  }
+
+  // ─── Dashboard stats ──────────────────────────────────
+
+  private async sendDashboardStats(phone: string, providerProfileId: string) {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [weekJobs, monthJobs, totalJobs, profile, ratings] = await Promise.all([
+      this.prisma.booking.count({
+        where: { providerId: providerProfileId, status: 'COMPLETED', completedAt: { gte: startOfWeek } },
+      }),
+      this.prisma.booking.count({
+        where: { providerId: providerProfileId, status: 'COMPLETED', completedAt: { gte: startOfMonth } },
+      }),
+      this.prisma.booking.count({
+        where: { providerId: providerProfileId, status: 'COMPLETED' },
+      }),
+      this.prisma.providerProfile.findUnique({
+        where: { id: providerProfileId },
+        include: { user: { select: { ratingAverage: true, ratingCount: true } } },
+      }),
+      this.prisma.booking.count({
+        where: {
+          providerId: providerProfileId,
+          status: { in: ['PENDING', 'ACCEPTED', 'PROVIDER_ARRIVING', 'IN_PROGRESS'] },
+        },
+      }),
+    ]);
+
+    const rating = profile?.user?.ratingAverage?.toFixed(1) || '0.0';
+    const ratingCount = profile?.user?.ratingCount || 0;
+
+    await this.whatsapp.sendTextMessage(
+      phone,
+      `📊 *Mi Dashboard*\n\n` +
+        `🔧 Trabajos completados:\n` +
+        `  • Esta semana: ${weekJobs}\n` +
+        `  • Este mes: ${monthJobs}\n` +
+        `  • Total: ${totalJobs}\n\n` +
+        `⭐ Rating: ${rating} (${ratingCount} reseñas)\n` +
+        `📋 Trabajos activos: ${ratings}\n\n` +
+        `_Escribe "menu" para volver al menú principal_`,
+    );
+  }
+
+  // ─── Jobs list ─────────────────────────────────────────
+
+  private async sendJobsList(phone: string, providerProfileId: string) {
+    const recentJobs = await this.prisma.booking.findMany({
+      where: { providerId: providerProfileId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        category: { select: { name: true, icon: true } },
+        customer: { select: { name: true } },
+      },
+    });
+
+    if (recentJobs.length === 0) {
+      await this.whatsapp.sendTextMessage(
+        phone,
+        '📝 *Mis Trabajos*\n\nAún no tienes trabajos registrados.\n\n_Escribe "menu" para volver al menú principal_',
+      );
+      return;
+    }
+
+    const statusEmoji: Record<string, string> = {
+      PENDING: '🟡',
+      ACCEPTED: '🟢',
+      PROVIDER_ARRIVING: '🚗',
+      IN_PROGRESS: '🔧',
+      COMPLETED: '✅',
+      RATED: '⭐',
+      CANCELLED: '🚫',
+      REJECTED: '❌',
+    };
+
+    const rows = recentJobs.map((job) => ({
+      id: `job_detail_${job.id}`,
+      title: `${statusEmoji[job.status] || '📋'} ${job.category?.name || 'Servicio'}`,
+      description: `${job.customer?.name || 'Cliente'} · ${new Date(job.createdAt).toLocaleDateString('es-MX')}`,
+    }));
+
+    await this.whatsapp.sendInteractiveList(
+      phone,
+      '📝 Mis Trabajos',
+      `Últimos ${recentJobs.length} trabajos:`,
+      'Selecciona uno para ver detalles',
+      'Ver trabajos',
+      [{ title: 'Trabajos recientes', rows }],
+    );
+  }
+
+  // ─── Account info ─────────────────────────────────────
+
+  private async sendAccountInfo(phone: string, providerProfileId: string) {
+    const profile = await this.prisma.providerProfile.findUnique({
+      where: { id: providerProfileId },
+      include: {
+        user: { select: { name: true, phone: true, ratingAverage: true, ratingCount: true } },
+        serviceZones: { include: { zone: { select: { name: true, city: true } } } },
+      },
+    });
+
+    if (!profile) {
+      await this.whatsapp.sendTextMessage(phone, '❌ No se encontró tu perfil.');
+      return;
+    }
+
+    const serviceTypes = Array.isArray(profile.serviceTypes) ? (profile.serviceTypes as string[]).join(', ') : '';
+    const zones = profile.serviceZones.map((z) => `${z.zone.name}, ${z.zone.city}`).join('\n  • ') || 'Sin zonas';
+
+    await this.whatsapp.sendTextMessage(
+      phone,
+      `⚙️ *Mi Cuenta*\n\n` +
+        `👤 Nombre: ${profile.user.name || 'Sin nombre'}\n` +
+        `📱 Teléfono: ${profile.user.phone}\n` +
+        `📝 Bio: ${profile.bio || 'Sin bio'}\n` +
+        `🔧 Servicios: ${serviceTypes}\n` +
+        `📍 Zonas:\n  • ${zones}\n` +
+        `✅ Verificado: ${profile.isVerified ? 'Sí' : 'No'}\n` +
+        `🟢 Disponible: ${profile.isAvailable ? 'Sí' : 'No'}`,
+    );
+
+    await this.whatsapp.sendInteractiveButtons(
+      phone,
+      '¿Qué deseas editar?',
+      [
+        { id: 'edit_name', title: '✏️ Cambiar nombre' },
+        { id: 'edit_bio', title: '📝 Cambiar bio' },
+        { id: `toggle_avail_${providerProfileId}`, title: profile.isAvailable ? '🔴 No disponible' : '🟢 Disponible' },
+      ],
+    );
+  }
+
+  // ─── Profile editing via WhatsApp ────────────────────────
+
+  private async handleEditingName(phone: string, text: string, session: ProviderSession) {
+    if (!text || !session.providerUserId) {
+      await this.whatsapp.sendTextMessage(phone, 'Escribe tu nuevo nombre o *"cancelar"* para salir.');
+      return;
+    }
+    if (text === 'cancelar' || text === 'cancel') {
+      await this.setSession(phone, { ...session, state: ProviderState.IDLE });
+      await this.whatsapp.sendTextMessage(phone, '❌ Edición cancelada. Escribe *"menu"* para continuar.');
+      return;
+    }
+    await this.prisma.user.update({ where: { id: session.providerUserId }, data: { name: text } });
+    await this.setSession(phone, { ...session, state: ProviderState.IDLE });
+    await this.whatsapp.sendTextMessage(phone, `✅ Nombre actualizado a *${text}*.\n\nEscribe *"menu"* para continuar.`);
+  }
+
+  private async handleEditingBio(phone: string, text: string, session: ProviderSession) {
+    if (!text || !session.providerProfileId) {
+      await this.whatsapp.sendTextMessage(phone, 'Escribe tu nueva bio o *"cancelar"* para salir.');
+      return;
+    }
+    if (text === 'cancelar' || text === 'cancel') {
+      await this.setSession(phone, { ...session, state: ProviderState.IDLE });
+      await this.whatsapp.sendTextMessage(phone, '❌ Edición cancelada. Escribe *"menu"* para continuar.');
+      return;
+    }
+    await this.prisma.providerProfile.update({ where: { id: session.providerProfileId }, data: { bio: text } });
+    await this.setSession(phone, { ...session, state: ProviderState.IDLE });
+    await this.whatsapp.sendTextMessage(phone, `✅ Bio actualizada.\n\nEscribe *"menu"* para continuar.`);
   }
 
   // ─── Helpers ─────────────────────────────────────────────
@@ -955,7 +1247,28 @@ export class WhatsAppProviderHandler {
         title: message.interactive.button_reply.title,
       };
     }
+    if (message.interactive?.type === 'list_reply') {
+      return {
+        id: message.interactive.list_reply.id,
+        title: message.interactive.list_reply.title,
+      };
+    }
     return null;
+  }
+
+  private haversineDistance(
+    lat1: number, lng1: number,
+    lat2: number, lng2: number,
+  ): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   // ─── Timeout handling ────────────────────────────────────

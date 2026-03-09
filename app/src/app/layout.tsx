@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth-context";
+import { ErrorBoundary } from "../components/ui/error-boundary";
 
 
 const inter = Inter({
@@ -49,10 +50,11 @@ export default function RootLayout({
       >
         {/* Mobile container — max 480px centered */}
         <div className="mx-auto max-w-[480px] min-h-screen bg-white shadow-sm">
-          <AuthProvider>
-            {children}
-
-          </AuthProvider>
+          <ErrorBoundary>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </ErrorBoundary>
         </div>
       </body>
     </html>

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
@@ -16,7 +17,12 @@ import { RatingsModule } from './modules/ratings/ratings.module';
 import { ZonesModule } from './modules/zones/zones.module';
 import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
+import { ProviderDashboardModule } from './modules/provider-dashboard/provider-dashboard.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { AdminModule } from './modules/admin/admin.module';
+import { TrustScoreModule } from './modules/trust-score/trust-score.module';
 
 @Module({
   imports: [
@@ -25,6 +31,9 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
     // Event bus for decoupled module communication
     EventEmitterModule.forRoot(),
+
+    // Cron jobs (weekly summary, etc.)
+    ScheduleModule.forRoot(),
 
     // Rate limiting: 60 requests per 60 seconds per IP
     ThrottlerModule.forRoot([
@@ -55,19 +64,24 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     RatingsModule,
     ZonesModule,
     OnboardingModule,
+    AddressesModule,
+    ProviderDashboardModule,
+    AdminModule,
+    TrustScoreModule,
   ],
   controllers: [AppController],
   providers: [
-    // Apply rate limiting globally
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    // Apply JWT authentication globally
-    // Routes marked with @Public() will bypass auth
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

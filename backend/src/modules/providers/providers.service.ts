@@ -102,6 +102,7 @@ export class ProvidersService {
         ratingAverage: p.user.ratingAverage,
         ratingCount: p.user.ratingCount,
         totalJobs: p.totalJobs,
+        tier: p.tier,
         isVerified: p.isVerified,
         isAvailable: p.isAvailable,
         locationLat: p.locationLat,
@@ -162,6 +163,7 @@ export class ProvidersService {
             },
           },
         },
+        trustScore: { select: { score: true } },
       },
     });
 
@@ -195,6 +197,8 @@ export class ProvidersService {
       ratingAverage: provider.user.ratingAverage,
       ratingCount: provider.user.ratingCount,
       totalJobs: provider.totalJobs,
+      tier: provider.tier,
+      trustScore: provider.trustScore?.score ?? null,
       isVerified: provider.isVerified,
       isAvailable: provider.isAvailable,
       locationLat: provider.locationLat,

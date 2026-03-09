@@ -40,10 +40,13 @@ function ProvidersListContent() {
   const [zones, setZones] = useState<ServiceZone[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(categorySlug);
   const [selectedZone, setSelectedZone] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'rating' | 'distance' | 'jobs'>('rating');
   const [showZoneFilter, setShowZoneFilter] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [userLat, setUserLat] = useState<number | undefined>(undefined);
+  const [userLng, setUserLng] = useState<number | undefined>(undefined);
 
   const categoryNameMap: Record<string, string> = {};
   for (const cat of categories) {
@@ -70,6 +73,20 @@ function ProvidersListContent() {
     }
   }, [location.selectedCity]);
 
+  // Get user's GPS on mount for distance sorting
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLat(pos.coords.latitude);
+          setUserLng(pos.coords.longitude);
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 5000 },
+      );
+    }
+  }, []);
+
   const loadProviders = useCallback(
     async (category: string, zoneId?: string) => {
       setLoading(true);
@@ -79,7 +96,9 @@ function ProvidersListContent() {
           category: category || undefined,
           zone: zoneId || undefined,
           city: !zoneId ? (location.selectedCity || undefined) : undefined,
-          sort: 'rating',
+          sort: sortBy,
+          lat: userLat,
+          lng: userLng,
           limit: 50,
         });
         setProviders(res.data);
@@ -91,7 +110,7 @@ function ProvidersListContent() {
         setLoading(false);
       }
     },
-    [location.selectedCity],
+    [location.selectedCity, sortBy, userLat, userLng],
   );
 
   useEffect(() => {
@@ -111,7 +130,7 @@ function ProvidersListContent() {
     if (isAuthenticated) {
       loadProviders(selectedCategory, selectedZone || undefined);
     }
-  }, [isAuthenticated, selectedCategory, selectedZone, loadProviders]);
+  }, [isAuthenticated, selectedCategory, selectedZone, sortBy, loadProviders]);
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug);
@@ -177,6 +196,28 @@ function ProvidersListContent() {
               }`}
             >
               {cat.icon} {cat.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort options */}
+        <div className="flex items-center gap-1.5 mt-2 -mx-4 px-4">
+          <span className="text-[10px] text-gray-400 shrink-0">Ordenar:</span>
+          {([
+            { key: 'rating' as const, label: '⭐ Rating' },
+            { key: 'distance' as const, label: '📍 Cercanía' },
+            { key: 'jobs' as const, label: '🔧 Experiencia' },
+          ]).map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSortBy(s.key)}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${
+                sortBy === s.key
+                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                  : 'bg-white text-gray-500 border-gray-200'
+              }`}
+            >
+              {s.label}
             </button>
           ))}
         </div>
@@ -313,6 +354,18 @@ function ProvidersListContent() {
                           ✅
                         </span>
                       )}
+                      {provider.tier && provider.tier >= 3 && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            provider.tier === 4
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                          title={provider.tier === 4 ? 'Elite' : 'Pro'}
+                        >
+                          {provider.tier === 4 ? '🏆 Elite' : '⭐ Pro'}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 mb-1">
@@ -329,6 +382,16 @@ function ProvidersListContent() {
                       <span className="text-xs text-gray-500">
                         {provider.totalJobs} trabajos
                       </span>
+                      {provider.distance !== undefined && provider.distance !== null && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="text-xs text-indigo-600 font-medium">
+                            📍 {provider.distance < 1
+                              ? `${Math.round(provider.distance * 1000)} m`
+                              : `${provider.distance.toFixed(1)} km`}
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <p className="text-xs text-gray-500 line-clamp-2">

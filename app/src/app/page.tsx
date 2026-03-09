@@ -38,6 +38,13 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [showCityPicker, setShowCityPicker] = useState(false);
 
+  // Redirect providers to their dashboard
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user?.role === 'PROVIDER') {
+      router.replace('/provider');
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+
   const loadData = useCallback(async (city?: string) => {
     try {
       setError(null);
