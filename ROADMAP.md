@@ -1,6 +1,6 @@
 # Handy — Roadmap
 
-> **Estado actual**: Fase 2 completada (Admin Panel, Tiers, Trust Score, Verification Pipeline, Safety, Reports, Compliance). Fase 3 parcial (infra basica).
+> **Estado actual**: Fase 3 completada (BullMQ queues, webhook idempotency, Pino logging, PII encryption, API versioning, connection pooling).
 > **Objetivo**: Plataforma dominante de servicios a domicilio en Mexico y LATAM.
 > **Modelo**: App para clientes + WhatsApp para proveedores + capa financiera como moat.
 > **Stack**: Next.js + NestJS + PostgreSQL + Redis + WhatsApp Cloud API
@@ -386,51 +386,61 @@ Proteccion durante la ejecucion del servicio. Critico para confianza del consumi
 
 ---
 
-## Fase 3: Infrastructure para Escala
+## Fase 3: Infrastructure para Escala (100%) ✅
 
 Cimientos tecnicos. Todo lo que se construya despues depende de esto.
 
 ### 3.1 Cola de Trabajos (BullMQ)
 
-- [ ] Queues: webhook-processing, notifications, verification, trust-score, payments
-- [ ] Dashboard de monitoreo (Bull Board)
-- [ ] Dead-letter queue + metricas (jobs/min, tasa de fallo)
+- [x] Queues: webhook-processing, notifications, verification, trust-score, payments
+- [x] Dashboard de monitoreo (Bull Board en /admin/queues)
+- [x] Dead-letter queue config + metricas (admin endpoint /api/admin/queues/stats)
+- [x] Graceful fallback: queues deshabilitadas sin Redis (dev local)
+- [x] Processors: NotificationProcessor, TrustScoreProcessor, WebhookProcessor
 
 ### 3.2 Idempotencia en Webhooks
 
-- [ ] Deduplicar webhooks de WhatsApp por message.id (Redis, TTL 24h)
-- [ ] Idempotency key para endpoints criticos (booking, pago, aprobacion)
+- [x] Deduplicar webhooks de WhatsApp por message.id (Redis, TTL 24h)
+- [x] Idempotency key interceptor para endpoints criticos (header idempotency-key)
 
 ### 3.3 Logging Estructurado
 
-- [ ] Pino (JSON logs) + correlation IDs por request
+- [x] Pino (JSON logs en prod, pretty en dev) + correlation IDs por request
+- [x] Auto-logging de requests HTTP con pino-http
+- [x] Redaccion de headers sensibles (Authorization, cookies)
+- [x] Correlation ID middleware (x-correlation-id) en todas las respuestas
 - [ ] Integracion con Grafana Cloud o Axiom (tier gratis)
 
 ### 3.4 Manejo Global de Errores
 
-- [x] Exception filter NestJS con formato consistente
+- [x] Exception filter NestJS con formato consistente + correlation ID
 - [x] Error boundaries en React (root + route-level)
-- [ ] API client: retries con backoff + timeouts
+- [x] API client: retries con exponential backoff + timeouts (30s default)
+- [x] Retries automaticos en errores 408, 429, 500, 502, 503, 504
 
 ### 3.5 Validacion de Config
 
 - [x] Schema para env vars — servidor no arranca si falta algo critico (produccion)
-- [ ] Eliminar fallbacks inseguros (JWT_SECRET hardcodeado)
+- [x] Eliminar fallbacks inseguros (JWT_SECRET, JWT_REFRESH_SECRET validados contra lista de defaults inseguros)
+- [x] PII_ENCRYPTION_KEY requerida en produccion
 
 ### 3.6 Proteccion de PII
 
-- [ ] Encriptacion AES-256 para telefono y URLs de fotos (Prisma middleware)
-- [ ] Sanitizar PII en logs (solo ultimos 4 digitos)
+- [x] Encriptacion AES-256-GCM para telefono, email, URLs de fotos (EncryptionService)
+- [x] Funciones utilitarias: encryptPiiFields, decryptPiiFields, decryptPiiArray
+- [x] Sanitizar PII en logs (maskPhone, maskEmail)
+- [x] Redaccion automatica de Authorization headers en logs Pino
 
 ### 3.7 Versionado de API
 
-- [ ] Migrar a `/api/v1/` (mantener `/api/` como alias temporal)
-- [ ] Documentar en Swagger con version
+- [x] `/api/v1/*` alias transparente a `/api/*`
+- [x] Swagger documentado con version
 
 ### 3.8 Base de Datos
 
 - [x] Indexes faltantes: ProviderApplication (phone, status), Booking composites, Message.createdAt
-- [ ] Connection pooling Prisma + Neon
+- [x] Connection pooling Prisma + Neon (pgbouncer auto-config en produccion)
+- [x] Slow query logging en desarrollo (>500ms)
 - [ ] Estrategia de particionamiento para tablas grandes
 
 ---

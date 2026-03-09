@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -41,6 +42,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = exception.message;
     }
 
+    const correlationId = request.headers[CORRELATION_ID_HEADER] as string;
+
     if (status >= 500) {
       this.logger.error(
         `${request.method} ${request.url} → ${status}: ${message}`,
@@ -56,6 +59,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: Array.isArray(message) ? message : [message],
       path: request.url,
       timestamp: new Date().toISOString(),
+      correlationId,
       ...(details ? { details } : {}),
     });
   }

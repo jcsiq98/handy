@@ -11,13 +11,18 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { AdminService } from './admin.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { QueueService } from '../../common/queues/queue.service';
+import { QUEUE_NAMES } from '../../common/queues/queue.constants';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Roles('ADMIN')
 @Controller('api/admin')
 export class AdminController {
-  constructor(private service: AdminService) {}
+  constructor(
+    private service: AdminService,
+    private queueService: QueueService,
+  ) {}
 
   // ─── Applications ─────────────────────────────────────────
 
@@ -102,5 +107,23 @@ export class AdminController {
     @Body('tier') tier: number,
   ) {
     return this.service.updateProviderTier(id, tier, adminUserId);
+  }
+
+  // ─── Queue Monitoring ─────────────────────────────────────
+
+  @Get('queues/stats')
+  @ApiOperation({ summary: 'Get BullMQ queue statistics' })
+  async getQueueStats() {
+    const stats: Record<string, any> = {
+      enabled: this.queueService.isEnabled(),
+    };
+
+    if (!this.queueService.isEnabled()) return stats;
+
+    for (const [key, name] of Object.entries(QUEUE_NAMES)) {
+      stats[key.toLowerCase()] = await this.queueService.getQueueStats(name);
+    }
+
+    return stats;
   }
 }

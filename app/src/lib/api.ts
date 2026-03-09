@@ -1,13 +1,22 @@
 // ─── API Client ─────────────────────────────────────────────
-// Centralised fetch wrapper with token management and refresh logic.
+// Centralised fetch wrapper with token management, refresh logic,
+// and automatic retries with exponential backoff.
 
 const API_BASE =
   typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
     ? `${process.env.NEXT_PUBLIC_API_URL}/api`
     : '/api';
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 1000;
+const REQUEST_TIMEOUT_MS = 30_000;
+
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
+
 interface ApiOptions extends RequestInit {
   skipAuth?: boolean;
+  retries?: number;
+  timeout?: number;
 }
 
 function getAccessToken(): string | null {
@@ -23,7 +32,6 @@ function getRefreshToken(): string | null {
 export function setTokens(accessToken: string, refreshToken: string) {
   localStorage.setItem('handy_access_token', accessToken);
   localStorage.setItem('handy_refresh_token', refreshToken);
-  // Set cookie for Next.js middleware to read
   document.cookie = `handy_auth=1; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
 }
 
@@ -58,11 +66,34 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
 export async function api<T = unknown>(
   endpoint: string,
   options: ApiOptions = {},
 ): Promise<T> {
-  const { skipAuth, headers: customHeaders, ...fetchOptions } = options;
+  const {
+    skipAuth,
+    retries = MAX_RETRIES,
+    timeout = REQUEST_TIMEOUT_MS,
+    headers: customHeaders,
+    ...fetchOptions
+  } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -76,40 +107,73 @@ export async function api<T = unknown>(
     }
   }
 
-  let res = await fetch(`${API_BASE}${endpoint}`, {
-    ...fetchOptions,
-    headers,
-  });
+  let lastError: Error | null = null;
 
-  // If 401 and we have a refresh token, try refreshing
-  if (res.status === 401 && !skipAuth) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      const newToken = getAccessToken();
-      if (newToken) {
-        headers['Authorization'] = `Bearer ${newToken}`;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      let res = await fetchWithTimeout(
+        `${API_BASE}${endpoint}`,
+        { ...fetchOptions, headers },
+        timeout,
+      );
+
+      // Token refresh on 401
+      if (res.status === 401 && !skipAuth) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          const newToken = getAccessToken();
+          if (newToken) {
+            headers['Authorization'] = `Bearer ${newToken}`;
+          }
+          res = await fetchWithTimeout(
+            `${API_BASE}${endpoint}`,
+            { ...fetchOptions, headers },
+            timeout,
+          );
+        }
       }
-      res = await fetch(`${API_BASE}${endpoint}`, {
-        ...fetchOptions,
-        headers,
-      });
+
+      if (res.ok) {
+        return res.json();
+      }
+
+      // Retry on transient server errors
+      if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < retries) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        await sleep(delay);
+        continue;
+      }
+
+      const errorData = await res.json().catch(() => ({}));
+
+      if (res.status === 401 && !skipAuth) {
+        clearTokens();
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+          return undefined as any;
+        }
+      }
+
+      throw new ApiError(res.status, errorData.message || 'Request failed', errorData);
+    } catch (error: any) {
+      if (error instanceof ApiError) throw error;
+
+      lastError = error;
+
+      // Retry on network errors (fetch failure, timeout)
+      if (attempt < retries) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        await sleep(delay);
+        continue;
+      }
     }
   }
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    // If still 401 after refresh attempt, clear tokens and redirect to login
-    if (res.status === 401 && !skipAuth) {
-      clearTokens();
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
-        return undefined as any;
-      }
-    }
-    throw new ApiError(res.status, errorData.message || 'Request failed', errorData);
-  }
-
-  return res.json();
+  throw new ApiError(
+    0,
+    lastError?.message || 'Network error after retries',
+    { originalError: lastError?.name },
+  );
 }
 
 export class ApiError extends Error {

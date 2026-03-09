@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
+import { LoggerModule } from 'nestjs-pino';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
@@ -26,19 +27,44 @@ import { TrustScoreModule } from './modules/trust-score/trust-score.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { SafetyModule } from './modules/safety/safety.module';
+import { QueueModule } from './common/queues/queue.module';
+import { CryptoModule } from './common/crypto/crypto.module';
+import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+
+const isProd = process.env.NODE_ENV === 'production';
 
 @Module({
   imports: [
-    // Global config from .env
     ConfigModule.forRoot({ isGlobal: true }),
 
-    // Event bus for decoupled module communication
-    EventEmitterModule.forRoot(),
+    // Structured logging with Pino (JSON in prod, pretty in dev)
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: isProd ? 'info' : 'debug',
+        transport: isProd
+          ? undefined
+          : { target: 'pino-pretty', options: { colorize: true, singleLine: true } },
+        autoLogging: {
+          ignore: (req: any) =>
+            req.url === '/api/health' || req.url === '/api/health/whatsapp',
+        },
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'res.headers["set-cookie"]',
+          ],
+          censor: '[REDACTED]',
+        },
+        customProps: (req: any) => ({
+          correlationId: req.headers['x-correlation-id'],
+        }),
+      },
+    }),
 
-    // Cron jobs (weekly summary, etc.)
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
 
-    // Rate limiting: 60 requests per 60 seconds per IP
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -46,13 +72,13 @@ import { SafetyModule } from './modules/safety/safety.module';
       },
     ]),
 
-    // Database
+    // Infrastructure
     PrismaModule,
-
-    // Cache
     RedisModule,
+    QueueModule.register(),
+    CryptoModule,
 
-    // WhatsApp integration (global — provides WhatsAppService to all modules)
+    // WhatsApp (global)
     WhatsAppModule,
 
     // Auth
@@ -91,4 +117,8 @@ import { SafetyModule } from './modules/safety/safety.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+  }
+}
