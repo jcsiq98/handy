@@ -20,7 +20,7 @@ const ENV_SCHEMA: EnvVar[] = [
   { key: 'JWT_SECRET', required: true, sensitive: true },
   { key: 'JWT_REFRESH_SECRET', required: 'production', sensitive: true },
   { key: 'REDIS_URL', required: false },
-  { key: 'PII_ENCRYPTION_KEY', required: 'production', sensitive: true },
+  { key: 'PII_ENCRYPTION_KEY', required: false, sensitive: true },
   { key: 'WHATSAPP_TOKEN', required: false, sensitive: true },
   { key: 'WHATSAPP_PHONE_NUMBER_ID', required: false },
   { key: 'WHATSAPP_VERIFY_TOKEN', required: false, fallback: 'handy-verify-token' },
