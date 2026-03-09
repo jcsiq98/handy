@@ -20,13 +20,19 @@ export class ProvidersService {
     sortBy?: 'rating' | 'distance' | 'jobs';
     limit?: number;
     offset?: number;
+    minTier?: number;
   }) {
-    const { category, zone, city, lat, lng, sortBy = 'rating', limit = 20, offset = 0 } = options;
+    const { category, zone, city, lat, lng, sortBy = 'rating', limit = 20, offset = 0, minTier } = options;
 
     // Build where clause
     const where: Prisma.ProviderProfileWhereInput = {
       user: { isActive: true },
     };
+
+    // Filter by minimum tier
+    if (minTier && minTier > 1) {
+      where.tier = { gte: minTier };
+    }
 
     // Filter by category slug if provided
     if (category) {

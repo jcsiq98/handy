@@ -25,6 +25,7 @@ export class ProvidersController {
   @ApiQuery({ name: 'sort', required: false, enum: ['rating', 'distance', 'jobs'], description: 'Sort order' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Results per page (default 20)' })
   @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Offset for pagination' })
+  @ApiQuery({ name: 'minTier', required: false, type: Number, description: 'Minimum tier to show (1-4)' })
   async listProviders(
     @Query('category') category?: string,
     @Query('zone') zone?: string,
@@ -34,6 +35,7 @@ export class ProvidersController {
     @Query('sort') sort?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('minTier') minTier?: string,
   ) {
     return this.providersService.listProviders({
       category: category || undefined,
@@ -44,6 +46,7 @@ export class ProvidersController {
       sortBy: (sort as 'rating' | 'distance' | 'jobs') || 'rating',
       limit: limit ? parseInt(limit, 10) : 20,
       offset: offset ? parseInt(offset, 10) : 0,
+      minTier: minTier ? parseInt(minTier, 10) : undefined,
     });
   }
 

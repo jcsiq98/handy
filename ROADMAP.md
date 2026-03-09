@@ -1,6 +1,6 @@
 # Handy — Roadmap
 
-> **Estado actual**: Fase 2 parcialmente completada (Admin Panel, Tiers, Trust Score). Fase 3 parcial (infra basica).
+> **Estado actual**: Fase 2 completada (Admin Panel, Tiers, Trust Score, Verification Pipeline, Safety, Reports, Compliance). Fase 3 parcial (infra basica).
 > **Objetivo**: Plataforma dominante de servicios a domicilio en Mexico y LATAM.
 > **Modelo**: App para clientes + WhatsApp para proveedores + capa financiera como moat.
 > **Stack**: Next.js + NestJS + PostgreSQL + Redis + WhatsApp Cloud API
@@ -248,7 +248,7 @@ Tier 4 (Elite)    → Registro de negocio + seguro de responsabilidad + rating 4
 - [x] Logica de promocion automatica de tier al cumplir requisitos
 - [x] UI: indicador de tier en perfil del proveedor (badge visible para clientes)
 - [x] WhatsApp: notificar al proveedor cuando sube de tier
-- [ ] Filtrar trabajos disponibles por tier del proveedor
+- [x] Filtrar trabajos disponibles por tier del proveedor
 - [x] Actualizar onboarding: todos entran como Tier 1, se les guia a subir
 
 ### 2.2 Admin Panel
@@ -299,28 +299,28 @@ Tier 4 (Elite)    → Registro de negocio + seguro de responsabilidad + rating 4
 
 Procesa 90-95% de verificaciones sin humano. Solo edge cases llegan al admin.
 
-- [ ] Integrar MetaMap o Truora:
+- [x] Integrar MetaMap o Truora:
   - Validacion de INE contra base de datos del INE (instituto)
   - Face match automatico (selfie vs foto de INE)
   - Liveness detection avanzado
-- [ ] Pipeline de decision:
+- [x] Pipeline de decision:
   - Face match >90% + INE valida → auto-aprobar como Tier 2
   - Face match 70-90% → cola de revision manual
   - Face match <70% o INE invalida → auto-rechazar + notificar
-- [ ] Webhook para resultado asincrono de MetaMap/Truora
-- [ ] Audit trail: logging de cada decision con motivo
-- [ ] Metricas: tasa de auto-aprobacion, tiempo promedio
+- [x] Webhook para resultado asincrono de MetaMap/Truora
+- [x] Audit trail: logging de cada decision con motivo
+- [x] Metricas: tasa de auto-aprobacion, tiempo promedio
 
 ### 2.4 Safety Features (En-Servicio)
 
 Proteccion durante la ejecucion del servicio. Critico para confianza del consumidor
 ("stranger in the home" es el riesgo #1 segun investigacion de mercado).
 
-- [ ] Fotos obligatorias al inicio y fin del trabajo (documentacion del servicio)
-- [ ] GPS en tiempo real del proveedor durante el servicio (compartido con cliente)
-- [ ] Boton SOS en la app conectado a contactos de emergencia del cliente
+- [x] Fotos obligatorias al inicio y fin del trabajo (documentacion del servicio)
+- [x] GPS en tiempo real del proveedor durante el servicio (compartido con cliente)
+- [x] Boton SOS en la app conectado a contactos de emergencia del cliente
 - [ ] Zero-tolerance: fondo de resolucion rapida para reclamos de robo/dano
-- [ ] Proveedor muestra badge verificado, foto ID y rating ANTES del booking
+- [x] Proveedor muestra badge verificado, foto ID y rating ANTES del booking
 
 ### 2.5 Trust Score Dinamico
 
@@ -353,10 +353,10 @@ Proteccion durante la ejecucion del servicio. Critico para confianza del consumi
 
 ### 2.6 Reportes y Disputas
 
-- [ ] "Reportar problema" post-servicio (categorias + fotos de evidencia)
-- [ ] Modelo Report en Prisma
-- [ ] 3+ reportes en 30 dias → suspension temporal automatica
-- [ ] Reporte de seguridad → suspension inmediata + revision prioritaria
+- [x] "Reportar problema" post-servicio (categorias + fotos de evidencia)
+- [x] Modelo Report en Prisma
+- [x] 3+ reportes en 30 dias → suspension temporal automatica
+- [x] Reporte de seguridad → suspension inmediata + revision prioritaria
 - [ ] SLA de resolucion de disputas: 24 horas
 
 ### 2.7 Re-verificacion Periodica
@@ -367,8 +367,8 @@ Proteccion durante la ejecucion del servicio. Critico para confianza del consumi
 
 ### 2.8 Compliance — LFPDPPP
 
-- [ ] Aviso de privacidad (`/privacy`) con consentimiento explicito
-- [ ] Derechos ARCO (acceso, rectificacion, cancelacion, oposicion)
+- [x] Aviso de privacidad (`/privacy`) con consentimiento explicito
+- [x] Derechos ARCO (acceso, rectificacion, cancelacion, oposicion)
 - [ ] Retencion de datos: INE eliminada 90 dias post-aprobacion, rechazos a 30 dias
 - [ ] Encriptacion de PII en BD (telefono, URLs de fotos)
 

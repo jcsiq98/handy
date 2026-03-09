@@ -23,6 +23,9 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AdminModule } from './modules/admin/admin.module';
 import { TrustScoreModule } from './modules/trust-score/trust-score.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { VerificationModule } from './modules/verification/verification.module';
+import { SafetyModule } from './modules/safety/safety.module';
 
 @Module({
   imports: [
@@ -68,6 +71,9 @@ import { TrustScoreModule } from './modules/trust-score/trust-score.module';
     ProviderDashboardModule,
     AdminModule,
     TrustScoreModule,
+    ReportsModule,
+    VerificationModule,
+    SafetyModule,
   ],
   controllers: [AppController],
   providers: [

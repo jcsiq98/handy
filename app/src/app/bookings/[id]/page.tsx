@@ -3,7 +3,16 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../../../lib/auth-context';
-import { bookingsApi, ratingsApi, type BookingSummary, type BookingStatus, type MyRatingResponse } from '../../../lib/api';
+import {
+  bookingsApi,
+  ratingsApi,
+  reportsApi,
+  safetyApi,
+  type BookingSummary,
+  type BookingStatus,
+  type MyRatingResponse,
+  type ProviderLocationData,
+} from '../../../lib/api';
 
 const STATUS_CONFIG: Record<
   BookingStatus,
@@ -79,6 +88,13 @@ export default function BookingTrackingPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [myRating, setMyRating] = useState<MyRatingResponse | null>(null);
+  const [hasReported, setHasReported] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showSosConfirm, setShowSosConfirm] = useState(false);
+  const [sosTriggered, setSosTriggered] = useState(false);
+  const [providerLocation, setProviderLocation] = useState<ProviderLocationData | null>(null);
+  const [reportForm, setReportForm] = useState({ category: '', description: '' });
+  const [submittingReport, setSubmittingReport] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadBooking = useCallback(async () => {
@@ -86,13 +102,29 @@ export default function BookingTrackingPage() {
       const data = await bookingsApi.getById(bookingId);
       setBooking(data);
 
-      // Check if user has rated this booking (only for completed/rated)
       if (data.status === 'COMPLETED' || data.status === 'RATED') {
         try {
           const ratingData = await ratingsApi.getMyRating(bookingId);
           setMyRating(ratingData);
         } catch {
           // Ignore rating check errors
+        }
+        try {
+          const reportData = await reportsApi.getMyReport(bookingId);
+          setHasReported(reportData.reported);
+        } catch {
+          // Ignore
+        }
+      }
+
+      // Load provider location for active bookings
+      const trackableStatuses = ['ACCEPTED', 'PROVIDER_ARRIVING', 'IN_PROGRESS'];
+      if (trackableStatuses.includes(data.status)) {
+        try {
+          const loc = await safetyApi.getProviderLocation(bookingId);
+          setProviderLocation(loc);
+        } catch {
+          // Ignore
         }
       }
     } catch (err) {
@@ -136,6 +168,24 @@ export default function BookingTrackingPage() {
     };
   }, [booking?.status, bookingId]);
 
+  // Poll provider location for active bookings
+  useEffect(() => {
+    if (!booking) return;
+    const trackable = ['ACCEPTED', 'PROVIDER_ARRIVING', 'IN_PROGRESS'];
+    if (!trackable.includes(booking.status)) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const loc = await safetyApi.getProviderLocation(bookingId);
+        setProviderLocation(loc);
+      } catch {
+        // Ignore
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [booking?.status, bookingId]);
+
   const handleCancel = async () => {
     if (!booking) return;
     setCancelling(true);
@@ -148,6 +198,48 @@ export default function BookingTrackingPage() {
       setError(message);
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!reportForm.category || !reportForm.description) return;
+    setSubmittingReport(true);
+    try {
+      await reportsApi.create(bookingId, {
+        category: reportForm.category,
+        description: reportForm.description,
+        isSafety: ['SAFETY', 'HARASSMENT', 'THEFT'].includes(reportForm.category),
+      });
+      setHasReported(true);
+      setShowReportModal(false);
+      setReportForm({ category: '', description: '' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No se pudo enviar el reporte';
+      setError(message);
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
+  const handleSos = async () => {
+    try {
+      let lat: number | undefined;
+      let lng: number | undefined;
+      if (navigator.geolocation) {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        }).catch(() => null);
+        if (pos) {
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+        }
+      }
+      await safetyApi.triggerSos({ bookingId, lat, lng });
+      setSosTriggered(true);
+      setShowSosConfirm(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al enviar SOS';
+      setError(message);
     }
   };
 
@@ -374,6 +466,39 @@ export default function BookingTrackingPage() {
           </div>
         </section>
 
+        {/* Provider GPS Location */}
+        {providerLocation?.available && (
+          <section className="bg-white rounded-2xl p-4 border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-800 mb-3">
+              Ubicación del proveedor
+            </h2>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-lg">
+                📍
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-700">
+                  Última actualización:{' '}
+                  {providerLocation.updatedAt
+                    ? new Date(providerLocation.updatedAt).toLocaleTimeString('es-MX', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Ahora'}
+                </p>
+              </div>
+              <a
+                href={`https://maps.google.com/?q=${providerLocation.lat},${providerLocation.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium"
+              >
+                Ver en mapa
+              </a>
+            </div>
+          </section>
+        )}
+
         {/* Action buttons */}
         {!isTerminal && (
           <div className="space-y-3">
@@ -392,6 +517,21 @@ export default function BookingTrackingPage() {
                 className="w-full py-3 bg-white border border-red-200 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-50 transition-colors"
               >
                 Cancelar solicitud
+              </button>
+            )}
+
+            {/* SOS Button — only during active service */}
+            {['ACCEPTED', 'PROVIDER_ARRIVING', 'IN_PROGRESS'].includes(booking.status) && (
+              <button
+                onClick={() => sosTriggered ? null : setShowSosConfirm(true)}
+                disabled={sosTriggered}
+                className={`w-full py-3 rounded-xl font-semibold text-sm ${
+                  sosTriggered
+                    ? 'bg-orange-100 text-orange-600'
+                    : 'bg-red-600 text-white active:scale-95 transition-transform'
+                }`}
+              >
+                {sosTriggered ? 'Alerta SOS enviada' : '🆘 Botón de emergencia'}
               </button>
             )}
           </div>
@@ -441,6 +581,24 @@ export default function BookingTrackingPage() {
           </section>
         )}
 
+        {/* Report button for completed bookings */}
+        {(booking.status === 'COMPLETED' || booking.status === 'RATED' || booking.status === 'IN_PROGRESS') && (
+          <section className="bg-white rounded-2xl p-4 border border-gray-100">
+            {hasReported ? (
+              <div className="text-center py-2">
+                <p className="text-sm text-gray-500">Ya reportaste este servicio</p>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="w-full py-3 bg-gray-50 border border-gray-200 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-100 transition-colors"
+              >
+                Reportar un problema
+              </button>
+            )}
+          </section>
+        )}
+
         {/* Back to bookings */}
         {isTerminal && (
           <button
@@ -451,6 +609,118 @@ export default function BookingTrackingPage() {
           </button>
         )}
       </div>
+
+      {/* SOS confirmation modal */}
+      {showSosConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+          <div className="w-full max-w-[480px] bg-white rounded-t-3xl p-6 pb-8 safe-bottom animate-in slide-in-from-bottom">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <div className="text-center mb-6">
+              <span className="text-5xl block mb-3">🆘</span>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Alerta de emergencia</h3>
+              <p className="text-sm text-gray-500">
+                Se notificará a tus contactos de emergencia con tu ubicación actual.
+                Usa esto solo en caso de una emergencia real.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={handleSos}
+                className="w-full py-3.5 bg-red-600 text-white rounded-xl font-semibold text-sm"
+              >
+                Enviar alerta SOS
+              </button>
+              <button
+                onClick={() => setShowSosConfirm(false)}
+                className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+          <div className="w-full max-w-[480px] bg-white rounded-t-3xl p-6 pb-8 safe-bottom animate-in slide-in-from-bottom max-h-[80vh] overflow-y-auto">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              Reportar un problema
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">
+                  Categoría del problema
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'NO_SHOW', label: 'No se presentó' },
+                    { value: 'POOR_QUALITY', label: 'Mala calidad' },
+                    { value: 'OVERCHARGE', label: 'Cobro excesivo' },
+                    { value: 'DAMAGE', label: 'Daño a propiedad' },
+                    { value: 'THEFT', label: 'Robo' },
+                    { value: 'HARASSMENT', label: 'Acoso' },
+                    { value: 'SAFETY', label: 'Seguridad' },
+                    { value: 'OTHER', label: 'Otro' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.value}
+                      onClick={() => setReportForm((f) => ({ ...f, category: cat.value }))}
+                      className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                        reportForm.category === cat.value
+                          ? 'bg-red-50 border-red-300 text-red-700'
+                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">
+                  Describe el problema
+                </label>
+                <textarea
+                  value={reportForm.description}
+                  onChange={(e) => setReportForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={4}
+                  placeholder="Cuéntanos qué pasó..."
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 resize-none"
+                />
+              </div>
+
+              {['THEFT', 'HARASSMENT', 'SAFETY'].includes(reportForm.category) && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+                  <p className="text-xs text-red-700 font-medium">
+                    Este es un reporte de seguridad. Será revisado con prioridad por nuestro equipo.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={handleReport}
+                  disabled={!reportForm.category || !reportForm.description || submittingReport}
+                  className="w-full py-3.5 bg-red-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50"
+                >
+                  {submittingReport ? 'Enviando...' : 'Enviar reporte'}
+                </button>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel confirmation modal */}
       {showCancelConfirm && (

@@ -29,14 +29,19 @@ model User {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
-  providerProfile  ProviderProfile?
-  bookingsAsCustomer Booking[] @relation("CustomerBookings")
-  sentMessages     Message[]  @relation("SentMessages")
-  ratingsGiven     Rating[]   @relation("RatingsGiven")
-  ratingsReceived  Rating[]   @relation("RatingsReceived")
-  otpCodes         OtpCode[]
-  refreshTokens    RefreshToken[]
-  savedAddresses   SavedAddress[]
+  providerProfile    ProviderProfile?
+  bookingsAsCustomer Booking[]          @relation("CustomerBookings")
+  sentMessages       Message[]          @relation("SentMessages")
+  ratingsGiven       Rating[]           @relation("RatingsGiven")
+  ratingsReceived    Rating[]           @relation("RatingsReceived")
+  otpCodes           OtpCode[]
+  refreshTokens      RefreshToken[]
+  savedAddresses     SavedAddress[]
+  reportsGiven       Report[]           @relation("ReportsGiven")
+  reportsReceived    Report[]           @relation("ReportsReceived")
+  servicePhotos      ServicePhoto[]     @relation("ServicePhotos")
+  emergencyContacts  EmergencyContact[]
+  sosAlerts          SosAlert[]         @relation("SosAlerts")
 
   @@map("users")
 }
@@ -70,6 +75,7 @@ model ProviderProfile {
   bookings      Booking[]             @relation("ProviderBookings")
   serviceZones  ProviderServiceZone[]
   trustScore    TrustScore?
+  location      ProviderLocation?
 
   @@index([tier])
   @@map("provider_profiles")
@@ -154,11 +160,14 @@ model Booking {
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  customer User             @relation("CustomerBookings", fields: [customerId], references: [id])
-  provider ProviderProfile? @relation("ProviderBookings", fields: [providerId], references: [id])
-  category ServiceCategory  @relation(fields: [categoryId], references: [id])
-  messages Message[]
-  ratings  Rating[]
+  customer      User             @relation("CustomerBookings", fields: [customerId], references: [id])
+  provider      ProviderProfile? @relation("ProviderBookings", fields: [providerId], references: [id])
+  category      ServiceCategory  @relation(fields: [categoryId], references: [id])
+  messages      Message[]
+  ratings       Rating[]
+  reports       Report[]
+  servicePhotos ServicePhoto[]
+  sosAlerts     SosAlert[]
 
   @@index([customerId])
   @@index([providerId])
@@ -268,6 +277,9 @@ model ProviderApplication {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
+  // Relations
+  verificationResults VerificationResult[]
+
   @@index([verificationStatus])
   @@index([phone])
   @@map("provider_applications")
@@ -276,6 +288,7 @@ model ProviderApplication {
 enum VerificationStatus {
   PENDING
   DOCS_SUBMITTED
+  VERIFICATION_IN_PROGRESS
   APPROVED
   REJECTED
 }
@@ -370,4 +383,159 @@ model TrustScoreHistory {
   @@index([providerId])
   @@index([createdAt])
   @@map("trust_score_history")
+}
+
+// ──────────────────────────────────────────────
+// Verification Results (automated pipeline)
+// ──────────────────────────────────────────────
+model VerificationResult {
+  id              String   @id @default(uuid())
+  applicationId   String   @map("application_id")
+  provider        String   @default("manual")          // "truora", "metamap", "manual"
+  faceMatchScore  Float?   @map("face_match_score")    // 0-100
+  ineValid        Boolean? @map("ine_valid")
+  livenessScore   Float?   @map("liveness_score")      // 0-100
+  decision        String                               // "auto_approved", "manual_review", "auto_rejected"
+  rawResponse     Json?    @map("raw_response")
+  externalId      String?  @map("external_id")         // ID from Truora/MetaMap
+  processedAt     DateTime @default(now()) @map("processed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  application ProviderApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("verification_results")
+}
+
+// ──────────────────────────────────────────────
+// Reports & Disputes
+// ──────────────────────────────────────────────
+model Report {
+  id            String       @id @default(uuid())
+  bookingId     String       @map("booking_id")
+  reporterId    String       @map("reporter_id")
+  reportedId    String       @map("reported_id")
+  category      ReportCategory
+  description   String
+  evidenceUrls  String[]     @map("evidence_urls")
+  status        ReportStatus @default(OPEN)
+  isSafety      Boolean      @default(false) @map("is_safety")
+  resolution    String?
+  resolvedBy    String?      @map("resolved_by")
+  resolvedAt    DateTime?    @map("resolved_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reporter User    @relation("ReportsGiven", fields: [reporterId], references: [id])
+  reported User    @relation("ReportsReceived", fields: [reportedId], references: [id])
+
+  @@index([reportedId])
+  @@index([reporterId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reports")
+}
+
+enum ReportCategory {
+  NO_SHOW
+  POOR_QUALITY
+  OVERCHARGE
+  DAMAGE
+  THEFT
+  HARASSMENT
+  SAFETY
+  FRAUD
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+// ──────────────────────────────────────────────
+// Service Photos (before/after documentation)
+// ──────────────────────────────────────────────
+model ServicePhoto {
+  id          String   @id @default(uuid())
+  bookingId   String   @map("booking_id")
+  uploaderId  String   @map("uploader_id")
+  type        ServicePhotoType
+  url         String
+  caption     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  uploader User    @relation("ServicePhotos", fields: [uploaderId], references: [id])
+
+  @@index([bookingId])
+  @@map("service_photos")
+}
+
+enum ServicePhotoType {
+  BEFORE
+  AFTER
+  EVIDENCE
+}
+
+// ──────────────────────────────────────────────
+// Emergency Contacts (SOS feature)
+// ──────────────────────────────────────────────
+model EmergencyContact {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  phone     String
+  relation  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("emergency_contacts")
+}
+
+// ──────────────────────────────────────────────
+// Provider Location (real-time GPS during service)
+// ──────────────────────────────────────────────
+model ProviderLocation {
+  id          String   @id @default(uuid())
+  providerId  String   @map("provider_id")
+  bookingId   String?  @map("booking_id")
+  lat         Float
+  lng         Float
+  accuracy    Float?
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId])
+  @@index([bookingId])
+  @@map("provider_locations")
+}
+
+// ──────────────────────────────────────────────
+// SOS Alerts
+// ──────────────────────────────────────────────
+model SosAlert {
+  id          String    @id @default(uuid())
+  bookingId   String    @map("booking_id")
+  triggeredBy String    @map("triggered_by")
+  lat         Float?
+  lng         Float?
+  status      String    @default("active")    // "active", "resolved", "false_alarm"
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User    @relation("SosAlerts", fields: [triggeredBy], references: [id])
+
+  @@index([bookingId])
+  @@index([triggeredBy])
+  @@map("sos_alerts")
 }

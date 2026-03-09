@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -15,6 +16,28 @@ export class AdminService {
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
   ) {}
+
+  @OnEvent('verification.auto_approved')
+  async handleAutoApproval(payload: {
+    applicationId: string;
+    phone: string;
+    name: string | null;
+    tier: number;
+    faceMatchScore: number;
+  }) {
+    try {
+      this.logger.log(
+        `Auto-approval triggered for application ${payload.applicationId} (face: ${payload.faceMatchScore}%)`,
+      );
+      await this.approveApplication(
+        payload.applicationId,
+        'system',
+        payload.tier,
+      );
+    } catch (error: any) {
+      this.logger.error(`Auto-approval failed: ${error.message}`);
+    }
+  }
 
   // ─── Applications ───────────────────────────────────────────
 

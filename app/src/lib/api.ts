@@ -721,6 +721,170 @@ export const adminApi = {
     ),
 };
 
+// ─── Reports ──────────────────────────────────────────────────
+
+export interface Report {
+  id: string;
+  bookingId: string;
+  reporterId: string;
+  reportedId: string;
+  category: string;
+  description: string;
+  evidenceUrls: string[];
+  status: string;
+  isSafety: boolean;
+  resolution: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reporter?: { id: string; name: string | null };
+  reported?: { id: string; name: string | null; phone?: string };
+  booking?: { id: string; description: string; status?: string };
+}
+
+export interface ReportListResponse {
+  data: Report[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const reportsApi = {
+  create: (bookingId: string, data: {
+    category: string;
+    description: string;
+    evidenceUrls?: string[];
+    isSafety?: boolean;
+  }) =>
+    api<Report>(`/bookings/${bookingId}/report`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getForBooking: (bookingId: string) =>
+    api<Report[]>(`/bookings/${bookingId}/reports`),
+
+  getMyReport: (bookingId: string) =>
+    api<{ reported: boolean; report: Report | null }>(
+      `/bookings/${bookingId}/my-report`,
+    ),
+};
+
+// ─── Safety ───────────────────────────────────────────────────
+
+export interface ServicePhoto {
+  id: string;
+  bookingId: string;
+  uploaderId: string;
+  type: 'BEFORE' | 'AFTER' | 'EVIDENCE';
+  url: string;
+  caption: string | null;
+  createdAt: string;
+  uploader?: { id: string; name: string | null };
+}
+
+export interface EmergencyContact {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string;
+  relation: string | null;
+  createdAt: string;
+}
+
+export interface ProviderLocationData {
+  available: boolean;
+  lat?: number;
+  lng?: number;
+  accuracy?: number | null;
+  updatedAt?: string;
+  message?: string;
+}
+
+export const safetyApi = {
+  uploadPhoto: (bookingId: string, data: {
+    type: 'BEFORE' | 'AFTER' | 'EVIDENCE';
+    url: string;
+    caption?: string;
+  }) =>
+    api<ServicePhoto>(`/bookings/${bookingId}/photos`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getPhotos: (bookingId: string) =>
+    api<ServicePhoto[]>(`/bookings/${bookingId}/photos`),
+
+  updateLocation: (data: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+    bookingId?: string;
+  }) =>
+    api('/provider/location', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getProviderLocation: (bookingId: string) =>
+    api<ProviderLocationData>(`/bookings/${bookingId}/provider-location`),
+
+  getEmergencyContacts: () =>
+    api<EmergencyContact[]>('/emergency-contacts'),
+
+  addEmergencyContact: (data: { name: string; phone: string; relation?: string }) =>
+    api<EmergencyContact>('/emergency-contacts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  removeEmergencyContact: (id: string) =>
+    api<{ success: boolean }>(`/emergency-contacts/${id}`, { method: 'DELETE' }),
+
+  triggerSos: (data: { bookingId: string; lat?: number; lng?: number }) =>
+    api<{ alertId: string; status: string; contactsNotified: number }>('/sos', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  resolveSos: (alertId: string) =>
+    api(`/sos/${alertId}/resolve`, { method: 'POST' }),
+};
+
+// ─── Admin Reports ────────────────────────────────────────────
+
+export const adminReportsApi = {
+  getReports: (params?: { status?: string; category?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const qs = searchParams.toString();
+    return api<ReportListResponse>(`/admin/reports${qs ? `?${qs}` : ''}`);
+  },
+
+  resolveReport: (id: string, resolution: string, action: 'resolve' | 'dismiss') =>
+    api(`/admin/reports/${id}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ resolution, action }),
+    }),
+
+  getVerificationMetrics: () =>
+    api<{
+      total: number;
+      autoApproved: number;
+      manualReview: number;
+      autoRejected: number;
+      autoApprovalRate: number;
+      avgFaceMatchScore: number;
+    }>('/admin/verification/metrics'),
+
+  startVerification: (applicationId: string) =>
+    api(`/admin/verification/${applicationId}/start`, { method: 'POST' }),
+};
+
 // ─── Zones / Location ────────────────────────────────────────
 
 export interface ServiceZone {

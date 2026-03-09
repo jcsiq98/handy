@@ -74,9 +74,16 @@ export class TrustScoreService {
         : 50;
 
     // Report penalty (each report deducts from 100)
-    // TODO: integrate actual Report model when available
-    const reportPenalty = 0;
-    const reportScore = Math.max(0, 100 - reportPenalty * 33);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const reportCount = await this.prisma.report.count({
+      where: {
+        reportedId: profile.userId,
+        createdAt: { gte: thirtyDaysAgo },
+        status: { not: 'DISMISSED' },
+      },
+    });
+    const reportScore = Math.max(0, 100 - reportCount * 33);
 
     // Cancellation penalty
     const cancellationRate =
@@ -248,6 +255,17 @@ export class TrustScoreService {
       }
     } catch (error: any) {
       this.logger.error(`Trust score recalc on rating failed: ${error.message}`);
+    }
+  }
+
+  @OnEvent('report.created')
+  async handleReportCreated(payload: { providerId: string | null }) {
+    try {
+      if (payload.providerId) {
+        await this.recalculate(payload.providerId);
+      }
+    } catch (error: any) {
+      this.logger.error(`Trust score recalc on report failed: ${error.message}`);
     }
   }
 }
