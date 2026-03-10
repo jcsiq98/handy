@@ -27,6 +27,7 @@ import { TrustScoreModule } from './modules/trust-score/trust-score.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { SafetyModule } from './modules/safety/safety.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { QueueModule } from './common/queues/queue.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
@@ -100,6 +101,7 @@ const isProd = process.env.NODE_ENV === 'production';
     ReportsModule,
     VerificationModule,
     SafetyModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

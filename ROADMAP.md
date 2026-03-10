@@ -1,6 +1,6 @@
 # Handy — Roadmap
 
-> **Estado actual**: Fase 3 completada (BullMQ queues, webhook idempotency, Pino logging, PII encryption, API versioning, connection pooling).
+> **Estado actual**: Fase 5 completada (Push Notifications FCM, perfil de usuario completo, PWA proveedor mejorada). Fase 4 saltada.
 > **Objetivo**: Plataforma dominante de servicios a domicilio en Mexico y LATAM.
 > **Modelo**: App para clientes + WhatsApp para proveedores + capa financiera como moat.
 > **Stack**: Next.js + NestJS + PostgreSQL + Redis + WhatsApp Cloud API
@@ -510,32 +510,32 @@ Reduce disputas y simplifica la UX.
 
 ---
 
-## Fase 5: Engagement
+## Fase 5: Engagement (100%) ✅
 
 ### 5.1 Push Notifications (FCM)
 
 Reduce dependencia de WhatsApp. A 10K bookings/mes, WA cuesta ~$315/mes. Push es gratis.
 
-- [ ] Firebase Cloud Messaging + service worker PWA
-- [ ] Notificaciones transaccionales (booking aceptado, mensaje, pago)
-- [ ] Estrategia hibrida: push para urgente, WA solo para onboarding y proveedores sin app
-- [ ] Config por usuario: silenciar por tipo
+- [x] Firebase Cloud Messaging + service worker PWA
+- [x] Notificaciones transaccionales (booking aceptado, mensaje, pago)
+- [x] Estrategia hibrida: push para urgente, WA solo para onboarding y proveedores sin app
+- [x] Config por usuario: silenciar por tipo
 
 ### 5.2 Perfil de Usuario Completo
 
-- [ ] Perfil: foto, nombre, direcciones guardadas, historial
-- [ ] Editar perfil + rating del cliente visible para proveedores
-- [ ] Direcciones frecuentes ("Mi casa", "Oficina")
-- [ ] Configuracion: notificaciones, eliminar cuenta (ARCO)
+- [x] Perfil: foto, nombre, direcciones guardadas, historial
+- [x] Editar perfil + rating del cliente visible para proveedores
+- [x] Direcciones frecuentes ("Mi casa", "Oficina")
+- [x] Configuracion: notificaciones, eliminar cuenta (ARCO)
 
 ### 5.3 PWA para Proveedores (Backup de WhatsApp)
 
 El reporte de industria marca la dependencia de Meta/WhatsApp como riesgo ALTO.
 PWA backup que replica la UX de WhatsApp para proveedores.
 
-- [ ] PWA proveedor: ver trabajos disponibles, aceptar/rechazar, status, ganancias
-- [ ] Almacenar relaciones en nuestra BD (no depender de WhatsApp)
-- [ ] Si WhatsApp falla o sube precios: migrar proveedores a PWA gradualmente
+- [x] PWA proveedor: ver trabajos disponibles, aceptar/rechazar, status, ganancias
+- [x] Almacenar relaciones en nuestra BD (no depender de WhatsApp)
+- [x] Si WhatsApp falla o sube precios: migrar proveedores a PWA gradualmente
 - [ ] Monitorear precios de Meta API trimestralmente
 
 ---

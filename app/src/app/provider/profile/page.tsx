@@ -196,6 +196,27 @@ export default function ProviderProfilePage() {
         />
       </div>
 
+      {/* Settings links */}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <button
+          onClick={() => router.push('/settings/notifications')}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+        >
+          <span className="text-lg">🔔</span>
+          <span className="text-sm font-medium text-gray-800 flex-1">Configurar notificaciones</span>
+          <span className="text-gray-400 text-sm">→</span>
+        </button>
+        <div className="border-t border-gray-100" />
+        <button
+          onClick={() => router.push('/settings/emergency')}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+        >
+          <span className="text-lg">🆘</span>
+          <span className="text-sm font-medium text-gray-800 flex-1">Contactos de emergencia</span>
+          <span className="text-gray-400 text-sm">→</span>
+        </button>
+      </div>
+
       {/* Logout */}
       <button
         onClick={handleLogout}

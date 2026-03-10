@@ -11,6 +11,7 @@
   "scope": "/",
   "lang": "es-MX",
   "categories": ["lifestyle", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.svg",
@@ -49,6 +50,18 @@
       "name": "Buscar Proveedores",
       "short_name": "Buscar",
       "url": "/providers",
+      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Panel Proveedor",
+      "short_name": "Proveedor",
+      "url": "/provider",
+      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notificaciones",
+      "short_name": "Notificaciones",
+      "url": "/notifications",
       "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
     }
   ]

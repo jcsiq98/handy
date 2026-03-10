@@ -14,6 +14,8 @@ import {
 import { useLocation } from '../lib/use-location';
 import ErrorState from '../components/ui/error-state';
 import { CategoryGridSkeleton, CardListSkeleton } from '../components/ui/skeleton';
+import { NotificationBell } from '../components/notifications/notification-bell';
+import { PushNotificationPrompt } from '../components/notifications/push-prompt';
 
 const CATEGORY_COLORS: Record<string, string> = {
   plumbing: 'bg-blue-50 text-blue-600',
@@ -119,13 +121,18 @@ export default function HomePage() {
             <h1 className="text-2xl font-bold">Hola, {firstName} 👋</h1>
             <p className="text-indigo-100 text-sm">¿Qué necesitas hoy?</p>
           </div>
-          <button
-            onClick={logout}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg hover:bg-white/30 transition-colors"
-            title="Cerrar sesión"
-          >
-            👤
-          </button>
+          <div className="flex items-center gap-1">
+            <div className="text-white">
+              <NotificationBell />
+            </div>
+            <button
+              onClick={() => router.push('/profile')}
+              className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg hover:bg-white/30 transition-colors"
+              title="Perfil"
+            >
+              👤
+            </button>
+          </div>
         </div>
 
         {/* Search bar */}
@@ -382,6 +389,9 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+
+      {/* Push notification prompt */}
+      <PushNotificationPrompt />
 
       {/* Bottom Navigation */}
       <nav className="sticky bottom-0 px-2 py-2 bg-white border-t border-gray-100 safe-bottom">

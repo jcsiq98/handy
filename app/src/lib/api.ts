@@ -949,6 +949,142 @@ export const adminReportsApi = {
     api(`/admin/verification/${applicationId}/start`, { method: 'POST' }),
 };
 
+// ─── Notifications ────────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+  imageUrl: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationsResponse {
+  data: AppNotification[];
+  total: number;
+  unreadCount: number;
+  limit: number;
+  offset: number;
+}
+
+export interface NotificationPreferences {
+  bookingUpdates: boolean;
+  messages: boolean;
+  promotions: boolean;
+  weeklyReport: boolean;
+  pushEnabled: boolean;
+  whatsappEnabled: boolean;
+}
+
+export const notificationsApi = {
+  registerDeviceToken: (token: string, platform: string = 'web') =>
+    api<{ success: boolean }>('/notifications/device-token', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform }),
+    }),
+
+  removeDeviceToken: (token: string) =>
+    api<{ success: boolean }>('/notifications/device-token', {
+      method: 'DELETE',
+      body: JSON.stringify({ token }),
+    }),
+
+  getPreferences: () =>
+    api<NotificationPreferences>('/notifications/preferences'),
+
+  updatePreferences: (data: Partial<NotificationPreferences>) =>
+    api<NotificationPreferences>('/notifications/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  list: (params?: { limit?: number; offset?: number; unreadOnly?: boolean }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    if (params?.unreadOnly) searchParams.set('unreadOnly', 'true');
+    const qs = searchParams.toString();
+    return api<NotificationsResponse>(`/notifications${qs ? `?${qs}` : ''}`);
+  },
+
+  getUnreadCount: () =>
+    api<{ count: number }>('/notifications/unread-count'),
+
+  markAsRead: (id: string) =>
+    api<{ success: boolean }>(`/notifications/${id}/read`, { method: 'PATCH' }),
+
+  markAllAsRead: () =>
+    api<{ success: boolean }>('/notifications/read-all', { method: 'PATCH' }),
+};
+
+// ─── User Profile (Extended) ─────────────────────────────────
+
+export interface FullUserProfile {
+  id: string;
+  phone: string;
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+  role: string;
+  ratingAverage: number;
+  ratingCount: number;
+  isActive: boolean;
+  createdAt: string;
+  providerProfile: any;
+  savedAddresses: SavedAddress[];
+  stats: {
+    totalBookings: number;
+    ratingsGiven: number;
+    ratingsReceived: number;
+  };
+}
+
+export interface BookingHistoryItem {
+  id: string;
+  status: string;
+  description: string;
+  address: string | null;
+  price: number | null;
+  createdAt: string;
+  completedAt: string | null;
+  category: { name: string; icon: string } | null;
+  provider: { id: string; name: string | null; avatarUrl: string | null } | null;
+  myRating: number | null;
+}
+
+export interface BookingHistoryResponse {
+  data: BookingHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const userProfileApi = {
+  getFullProfile: () =>
+    api<FullUserProfile>('/users/me/profile'),
+
+  updateProfile: (data: { name?: string; email?: string; avatarUrl?: string }) =>
+    api('/users/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getHistory: (params?: { limit?: number; offset?: number; status?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    if (params?.status) searchParams.set('status', params.status);
+    const qs = searchParams.toString();
+    return api<BookingHistoryResponse>(`/users/me/history${qs ? `?${qs}` : ''}`);
+  },
+
+  deleteAccount: () =>
+    api<{ success: boolean }>('/users/me/account', { method: 'DELETE' }),
+};
+
 // ─── Zones / Location ────────────────────────────────────────
 
 export interface ServiceZone {
